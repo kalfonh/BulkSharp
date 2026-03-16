@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 380" width="1200" height="380">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="50%" stop-color="#0d2137"/>
+      <stop offset="100%" stop-color="#0a3069"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="40%" r="40%">
+      <stop offset="0%" stop-color="#79c0ff" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#79c0ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="380" rx="12" fill="url(#bg)"/>
+  <rect width="1200" height="380" rx="12" fill="url(#glow)"/>
+  <rect x="536" y="32" width="128" height="128" rx="24" fill="rgba(121,192,255,0.1)" stroke="rgba(121,192,255,0.2)" stroke-width="1.5"/>
+  <text x="600" y="115" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-weight="800" font-size="72" fill="#e6edf3">B#</text>
+  <text x="600" y="210" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-weight="800" font-size="44" fill="#e6edf3" letter-spacing="-1.5">BulkSharp</text>
+  <text x="600" y="248" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-weight="400" font-size="18" fill="#8b949e">Production-grade bulk data processing library for .NET</text>
+  <text x="600" y="280" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-weight="400" font-size="14" fill="#6e7681">File storage, row streaming, validation, per-row error tracking,</text>
+  <text x="600" y="298" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif" font-weight="400" font-size="14" fill="#6e7681">progress reporting, retry logic, and background scheduling.</text>
+  <g transform="translate(356, 320)">
+    <rect width="42" height="24" rx="4" fill="rgba(121,192,255,0.12)" stroke="rgba(121,192,255,0.2)" stroke-width="0.75"/>
+    <text x="21" y="16" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,monospace" font-weight="600" font-size="11" fill="#79c0ff">CSV</text>
+    <rect x="50" width="50" height="24" rx="4" fill="rgba(121,192,255,0.12)" stroke="rgba(121,192,255,0.2)" stroke-width="0.75"/>
+    <text x="75" y="16" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,monospace" font-weight="600" font-size="11" fill="#79c0ff">JSON</text>
+    <rect x="108" width="34" height="24" rx="4" fill="rgba(121,192,255,0.12)" stroke="rgba(121,192,255,0.2)" stroke-width="0.75"/>
+    <text x="125" y="16" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,monospace" font-weight="600" font-size="11" fill="#79c0ff">S3</text>
+    <rect x="150" width="74" height="24" rx="4" fill="rgba(121,192,255,0.12)" stroke="rgba(121,192,255,0.2)" stroke-width="0.75"/>
+    <text x="187" y="16" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,monospace" font-weight="600" font-size="11" fill="#79c0ff">EF Core</text>
+    <rect x="232" width="60" height="24" rx="4" fill="rgba(121,192,255,0.12)" stroke="rgba(121,192,255,0.2)" stroke-width="0.75"/>
+    <text x="262" y="16" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,monospace" font-weight="600" font-size="11" fill="#79c0ff">Blazor</text>
+    <rect x="300" width="72" height="24" rx="4" fill="rgba(121,192,255,0.12)" stroke="rgba(121,192,255,0.2)" stroke-width="0.75"/>
+    <text x="336" y="16" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,monospace" font-weight="600" font-size="11" fill="#79c0ff">Gateway</text>
+    <rect x="380" width="76" height="24" rx="4" fill="rgba(121,192,255,0.12)" stroke="rgba(121,192,255,0.2)" stroke-width="0.75"/>
+    <text x="418" y="16" text-anchor="middle" font-family="ui-monospace,SFMono-Regular,monospace" font-weight="600" font-size="11" fill="#79c0ff">Channels</text>
+  </g>
+</svg>

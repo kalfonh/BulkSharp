@@ -1,0 +1,24 @@
+@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Web
+
+<div class="page">
+    <nav class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">
+                <img src="_content/BulkSharp.Dashboard/favicon.svg" alt="BulkSharp" width="24" height="24" />
+            </div>
+            <div>
+                <h5>BulkSharp</h5>
+                <small>Operations Dashboard</small>
+            </div>
+        </div>
+        <NavMenu />
+    </nav>
+
+    <div class="main-wrapper">
+        <div class="main-content">
+            @Body
+        </div>
+    </div>
+    <ToastContainer />
+</div>

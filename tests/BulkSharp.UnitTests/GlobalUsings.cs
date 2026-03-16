@@ -1,0 +1,16 @@
+global using Xunit;
+global using Moq;
+global using FluentAssertions;
+global using System.Threading.Tasks;
+global using System.Threading;
+global using BulkSharp.Core.Abstractions.Operations;
+global using BulkSharp.Core.Abstractions.Storage;
+global using BulkSharp.Core.Abstractions.Processing;
+global using BulkSharp.Core.Attributes;
+global using BulkSharp.Core.Domain.Operations;
+global using BulkSharp.Core.Domain.Processing;
+global using BulkSharp.Processing;
+global using BulkSharp.Processing.Abstractions;
+global using BulkSharp.Core.Constants;
+global using Microsoft.Extensions.Logging;
+global using BulkSharp;

@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <PackageId>BulkSharp.Core</PackageId>
+    <Description>Core abstractions and interfaces for BulkSharp - a production-grade .NET library for bulk data processing operations.</Description>
+    <PackageTags>bulk;operations;csv;json;processing;async;abstractions</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BulkSharp" />
+    <InternalsVisibleTo Include="BulkSharp.Processing" />
+    <InternalsVisibleTo Include="BulkSharp.Data.EntityFramework" />
+    <InternalsVisibleTo Include="BulkSharp.UnitTests" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+    <InternalsVisibleTo Include="BulkSharp.IntegrationTests" />
+    <InternalsVisibleTo Include="BulkSharp.E2ETests" />
+    <InternalsVisibleTo Include="BulkSharp.Dashboard.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,11 @@
+global using BulkSharp.Core.Abstractions.Operations;
+global using BulkSharp.Core.Abstractions.DataFormats;
+global using BulkSharp.Core.Abstractions.Storage;
+global using BulkSharp.Core.Abstractions.Processing;
+global using BulkSharp.Core.Attributes;
+global using BulkSharp.Core.Domain.Files;
+global using BulkSharp.Core.Domain.Discovery;
+global using BulkSharp.Core.Domain.Operations;
+global using Microsoft.Extensions.DependencyInjection;
+global using System.Reflection;
+global using System.Runtime.CompilerServices;

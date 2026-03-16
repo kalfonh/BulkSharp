@@ -1,0 +1,6 @@
+order_id,customer_email,product_sku,quantity,unit_price,shipping_address
+ORD-001,alice@example.com,SKU-LAPTOP-15,1,1299.99,123 Main St
+ORD-002,bob@example.com,SKU-MOUSE-01,2,29.99,456 Oak Ave
+ORD-003,charlie@example.com,SKU-KEYBOARD-02,1,89.99,789 Pine Rd
+ORD-004,diana@example.com,SKU-MONITOR-27,1,449.99,321 Elm St
+ORD-005,eve@example.com,SKU-HEADSET-PRO,3,159.99,654 Maple Dr

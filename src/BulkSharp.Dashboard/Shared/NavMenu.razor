@@ -1,0 +1,19 @@
+@using Microsoft.AspNetCore.Components.Routing
+
+<div class="sidebar-nav">
+    <div class="nav-section">Main</div>
+    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+        <i class="bi bi-grid-1x2"></i>
+        <span>Dashboard</span>
+    </NavLink>
+    <NavLink class="nav-link" href="bulks-list">
+        <i class="bi bi-list-task"></i>
+        <span>Operations</span>
+    </NavLink>
+
+    <div class="nav-section" style="margin-top: 0.75rem;">Actions</div>
+    <NavLink class="nav-link" href="create">
+        <i class="bi bi-plus-circle"></i>
+        <span>New Operation</span>
+    </NavLink>
+</div>
