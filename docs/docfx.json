@@ -1,0 +1,57 @@
+{
+  "metadata": [
+    {
+      "src": [
+        {
+          "files": ["src/**/*.csproj"],
+          "src": ".."
+        }
+      ],
+      "dest": "api",
+      "properties": {
+        "TargetFramework": "net8.0"
+      }
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": ["api/**.yml", "api/index.md"]
+      },
+      {
+        "files": [
+          "*.md",
+          "getting-started/*.md",
+          "guides/*.md",
+          "toc.yml",
+          "getting-started/toc.yml",
+          "guides/toc.yml"
+        ]
+      }
+    ],
+    "resource": [
+      {
+        "files": ["images/**"]
+      }
+    ],
+    "dest": "../_site",
+    "globalMetadataFiles": [],
+    "globalMetadata": {
+      "_appTitle": "BulkSharp",
+      "_appName": "BulkSharp",
+      "_appLogoPath": "images/logo.svg",
+      "_appFaviconPath": "images/favicon.svg",
+      "_appFooter": "<span>BulkSharp &mdash; Production-grade bulk data processing for .NET &nbsp;|&nbsp; <a href='https://github.com/kalfonh/BulkSharp'>GitHub</a> &nbsp;|&nbsp; <a href='https://github.com/kalfonh/BulkSharp/issues'>Issues</a> &nbsp;|&nbsp; MIT License</span>",
+      "_enableSearch": true,
+      "_disableContribution": false,
+      "_gitContribute": {
+        "repo": "https://github.com/kalfonh/BulkSharp",
+        "branch": "main",
+        "path": "docs"
+      },
+      "_description": "Production-grade .NET 8 library for bulk data processing operations with CSV/JSON support, pluggable storage, and Blazor dashboard.",
+      "_keywords": "BulkSharp, .NET, bulk operations, CSV, JSON, data processing, Entity Framework, Blazor"
+    },
+    "template": ["default", "modern", "templates/modern"]
+  }
+}

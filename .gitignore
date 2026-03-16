@@ -1,0 +1,54 @@
+# Gitignore for BulkSharp tests directory
+
+# Build outputs
+bin/
+obj/
+
+bin/Debug/net8.0
+bin/Release/net8.0
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Visual Studio files
+.vs/
+*.suo
+*.user
+*.sln.docstates
+
+# Rider files
+.idea/
+*.iml
+
+# Node.js
+node_modules/
+
+# Misc
+.DS_Store
+Thumbs.db
+
+# BulkSharp file storage (runtime-created)
+bulksharp-storage/
+test-files/
+storage1/
+prod-storage/
+
+/bin
+/obj
+/.claude/settings.local.json
+
+# DocFX output
+_site/
+docs/api/
+
+# Plan documents (local only)
+docs/plans/
+
+# Claude Code / Superpowers runtime
+.superpowers/
+
+# Build artifacts
+artifacts/

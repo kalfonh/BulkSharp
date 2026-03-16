@@ -1,0 +1,64 @@
+# ── Fundamentals ──────────────────────────────────────────
+- name: Architecture
+  href: architecture.md
+- name: Configuration
+  href: configuration.md
+
+# ── Data Formats & Operations ─────────────────────────────
+- name: CSV Operations
+  href: csv-operations.md
+- name: JSON Operations
+  href: json-operations.md
+- name: Pre-submission Validation
+  href: validation.md
+
+# ── Processing Pipeline ───────────────────────────────────
+- name: Row Tracking
+  href: row-tracking.md
+- name: Error Handling
+  href: error-handling.md
+- name: Exceptions
+  href: exceptions.md
+- name: Parallel Processing
+  href: parallel-processing.md
+
+# ── Step-Based Operations ─────────────────────────────────
+- name: Step-Based Operations
+  href: step-operations.md
+- name: Async Steps
+  href: async-steps.md
+- name: Signal Service
+  href: signal-service.md
+
+# ── Event Hooks & Notifications ───────────────────────────
+# (covered in configuration.md Event Hooks section)
+
+# ── Storage & Providers ───────────────────────────────────
+- name: EF Core Storage
+  href: ef-storage.md
+- name: S3 Storage
+  href: s3-storage.md
+- name: Custom Providers
+  href: custom-providers.md
+
+# ── Dashboard & UI ────────────────────────────────────────
+- name: Dashboard
+  href: dashboard.md
+- name: Dashboard Extensibility
+  href: dashboard-extensibility.md
+
+# ── Deployment & Infrastructure ───────────────────────────
+- name: Gateway
+  href: gateway.md
+- name: Assembly Scanning
+  href: assembly-scanning.md
+- name: Production Deployment
+  href: production.md
+
+# ── Reference ─────────────────────────────────────────────
+- name: Troubleshooting
+  href: troubleshooting.md
+- name: FAQ
+  href: faq.md
+- name: Glossary
+  href: glossary.md

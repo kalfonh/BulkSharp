@@ -1,0 +1,204 @@
+@page "/bulks"
+@using BulkSharp.Core.Domain.Operations
+@using BulkSharp.Core.Domain.Queries
+@using BulkSharp.Processing.Services
+@inject IBulkOperationService OperationService
+@inject ILogger<OperationList> Logger
+
+<div class="bulk-list">
+    <h3>Bulk Operations</h3>
+
+    <div class="row mb-3 g-2">
+        <div class="col-md-2">
+            <input type="text" class="form-control form-control-sm" placeholder="Operation Name"
+                   @bind="filterOperationName" @bind:event="oninput" @bind:after="FilterChanged" />
+        </div>
+        <div class="col-md-2">
+            <input type="text" class="form-control form-control-sm" placeholder="Created By"
+                   @bind="filterCreatedBy" @bind:event="oninput" @bind:after="FilterChanged" />
+        </div>
+        <div class="col-md-2">
+            <select class="form-select form-select-sm" @bind="filterStatus" @bind:after="FilterChanged">
+                <option value="">All Statuses</option>
+                @foreach (var s in Enum.GetValues<BulkOperationStatus>())
+                {
+                    <option value="@s">@s</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <input type="date" class="form-control form-control-sm" @bind="filterFromDate" @bind:after="FilterChanged" />
+        </div>
+        <div class="col-md-2">
+            <input type="date" class="form-control form-control-sm" @bind="filterToDate" @bind:after="FilterChanged" />
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="ClearFilters">Clear</button>
+        </div>
+    </div>
+
+    @if (pagedResult == null)
+    {
+        <p>Loading...</p>
+    }
+    else if (pagedResult.Items.Count == 0)
+    {
+        <p>No bulk operations found.</p>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Bulk ID</th>
+                        <th>Operation</th>
+                        <th>Created By</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>File</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var bulk in pagedResult.Items)
+                    {
+                        <tr>
+                            <td><code>@bulk.Id.ToString()[..8]...</code></td>
+                            <td><strong>@bulk.OperationName</strong></td>
+                            <td>@bulk.CreatedBy</td>
+                            <td>
+                                <span class="badge @GetStatusClass(bulk.Status)">
+                                    @bulk.Status
+                                </span>
+                            </td>
+                            <td>@bulk.CreatedAt.ToString("MMM dd, HH:mm")</td>
+                            <td>@bulk.FileName</td>
+                            <td>
+                                <div class="btn btn-sm btn-outline-primary">
+                                    <a href="@($"/bulk/{bulk.Id}")" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-eye"></i> Details
+                                    </a>
+                                </div>
+                                @if (bulk.Status == BulkOperationStatus.Pending)
+                                {
+                                    <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => CancelBulk(bulk.Id)">
+                                        <i class="bi bi-x-circle"></i> Cancel
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center">
+            <span class="text-muted">
+                Showing @((pagedResult.Page - 1) * pagedResult.PageSize + 1)-@Math.Min(pagedResult.Page * pagedResult.PageSize, pagedResult.TotalCount) of @pagedResult.TotalCount
+            </span>
+            <div>
+                <button class="btn btn-sm btn-outline-primary" disabled="@(currentPage <= 1)" @onclick="PreviousPage">Previous</button>
+                <button class="btn btn-sm btn-outline-primary ms-1" disabled="@(!pagedResult.HasNextPage)" @onclick="NextPage">Next</button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private PagedResult<BulkOperation>? pagedResult;
+    private int currentPage = 1;
+    private const int PageSize = 20;
+
+    private string? filterOperationName;
+    private string? filterCreatedBy;
+    private BulkOperationStatus? filterStatus;
+    private DateTime? filterFromDate;
+    private DateTime? filterToDate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadBulks();
+    }
+
+    private async Task LoadBulks()
+    {
+        try
+        {
+            var query = new BulkOperationQuery
+            {
+                OperationName = string.IsNullOrWhiteSpace(filterOperationName) ? null : filterOperationName,
+                CreatedBy = string.IsNullOrWhiteSpace(filterCreatedBy) ? null : filterCreatedBy,
+                Status = filterStatus,
+                FromDate = filterFromDate,
+                ToDate = filterToDate,
+                Page = currentPage,
+                PageSize = PageSize
+            };
+            pagedResult = await OperationService.QueryBulkOperationsAsync(query);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load bulk operations");
+            pagedResult = new PagedResult<BulkOperation>
+            {
+                Items = [],
+                TotalCount = 0,
+                Page = currentPage,
+                PageSize = PageSize
+            };
+        }
+    }
+
+    private async Task FilterChanged()
+    {
+        currentPage = 1;
+        await LoadBulks();
+    }
+
+    private async Task ClearFilters()
+    {
+        filterOperationName = null;
+        filterCreatedBy = null;
+        filterStatus = null;
+        filterFromDate = null;
+        filterToDate = null;
+        currentPage = 1;
+        await LoadBulks();
+    }
+
+    private async Task PreviousPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+            await LoadBulks();
+        }
+    }
+
+    private async Task NextPage()
+    {
+        if (pagedResult?.HasNextPage == true)
+        {
+            currentPage++;
+            await LoadBulks();
+        }
+    }
+
+    private string GetStatusClass(BulkOperationStatus status) => status switch
+    {
+        BulkOperationStatus.Pending => "bg-warning text-dark",
+        BulkOperationStatus.Running => "bg-info text-white",
+        BulkOperationStatus.Completed => "bg-success text-white",
+        BulkOperationStatus.CompletedWithErrors => "bg-warning text-dark",
+        BulkOperationStatus.Failed => "bg-danger text-white",
+        BulkOperationStatus.Cancelled => "bg-secondary text-white",
+        _ => "bg-light text-dark"
+    };
+
+    private async Task CancelBulk(Guid bulkId)
+    {
+        await OperationService.CancelBulkOperationAsync(bulkId);
+        await LoadBulks();
+    }
+}

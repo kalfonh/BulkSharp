@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <PackageId>BulkSharp</PackageId>
+    <Product>BulkSharp</Product>
+    <Description>A production-grade .NET library for bulk data processing operations with support for CSV, JSON, and custom formats. Features include step-based operations, validation, error handling, and extensible storage providers.</Description>
+    <PackageTags>bulk;processing;csv;json;etl;data;import;export;batch</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BulkSharp.Core\BulkSharp.Core.csproj" />
+    <ProjectReference Include="..\BulkSharp.Processing\BulkSharp.Processing.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

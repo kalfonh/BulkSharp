@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <PackageId>BulkSharp.Processing</PackageId>
+    <Description>Processing engine for BulkSharp bulk operations</Description>
+    <PackageTags>bulk;csv;operations;processing</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BulkSharp.Core\BulkSharp.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CsvHelper" Version="30.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="BulkSharp" />
+    <InternalsVisibleTo Include="BulkSharp.UnitTests" />
+    <InternalsVisibleTo Include="BulkSharp.IntegrationTests" />
+    <InternalsVisibleTo Include="BulkSharp.E2ETests" />
+    <InternalsVisibleTo Include="BulkSharp.Dashboard" />
+    <InternalsVisibleTo Include="BulkSharp.Dashboard.Tests" />
+    <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+  </ItemGroup>
+
+</Project>

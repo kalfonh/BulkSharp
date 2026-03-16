@@ -1,0 +1,11 @@
+FirstName,LastName,Email,Phone,Department,JobTitle,ManagerEmail,StartDate,Office,EquipmentTier
+Alice,Johnson,alice.johnson@company.com,+12025551234,Engineering,Senior Software Engineer,bob.smith@company.com,2026-04-01,New York,Enhanced
+Bob,Smith,bob.smith@company.com,+12025555678,Engineering,VP of Engineering,,2026-04-01,New York,Executive
+Carol,Williams,carol.williams@company.com,,Marketing,Marketing Coordinator,diana.lee@company.com,2026-04-15,San Francisco,Standard
+Diana,Lee,diana.lee@company.com,+14155559012,Marketing,Director of Marketing,,2026-04-01,San Francisco,Executive
+Edward,Brown,edward.brown@company.com,+12025553456,Finance,Financial Analyst,frank.garcia@company.com,2026-05-01,New York,Standard
+Frank,Garcia,frank.garcia@company.com,+12025557890,Finance,CFO,,2026-03-15,New York,Executive
+Grace,Chen,grace.chen@company.com,+14155551111,Engineering,DevOps Engineer,bob.smith@company.com,2026-04-15,San Francisco,Enhanced
+Henry,Park,henry.park@company.com,+12025552222,Sales,Account Executive,irene.taylor@company.com,2026-04-01,New York,Standard
+Irene,Taylor,irene.taylor@company.com,+14155553333,Sales,VP of Sales,,2026-04-01,San Francisco,Executive
+James,Wilson,james.wilson@company.com,,Support,Support Specialist,karen.jones@company.com,2026-05-15,New York,Standard

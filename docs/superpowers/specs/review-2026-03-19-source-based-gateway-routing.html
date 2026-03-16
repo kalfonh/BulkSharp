@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spec Review: Source-Based Gateway Routing</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #d29922;
+    --code-bg: #1c2128;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.8rem; margin-bottom: 0.5rem; color: #fff; }
+  .subtitle { color: var(--text-muted); margin-bottom: 2rem; font-size: 0.9rem; }
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+  .section-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .section-header h2 { font-size: 1.1rem; color: #fff; }
+  .section-body { padding: 1.25rem; }
+  .section-body p { margin-bottom: 0.75rem; }
+  .section-body ul { margin: 0.5rem 0 0.75rem 1.5rem; }
+  .section-body li { margin-bottom: 0.3rem; }
+  .section-body code {
+    background: var(--code-bg);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--accent);
+  }
+  .section-body pre {
+    background: var(--code-bg);
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 0.75rem 0;
+    font-size: 0.85rem;
+  }
+  .section-body pre code {
+    background: none;
+    padding: 0;
+    color: var(--text);
+  }
+  .file-ref {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.75rem 0;
+    font-size: 0.9rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+  }
+  th { background: var(--code-bg); color: var(--text-muted); font-weight: 600; }
+  td code { font-size: 0.8rem; }
+  .review-controls {
+    border-top: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .vote-buttons { display: flex; gap: 0.5rem; flex-shrink: 0; }
+  .vote-btn {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    padding: 0.4rem 0.9rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.15s;
+  }
+  .vote-btn:hover { border-color: var(--accent); }
+  .vote-btn.approve.active { background: #1a3a1a; border-color: var(--green); color: var(--green); }
+  .vote-btn.flag.active { background: #3a1a1a; border-color: var(--red); color: var(--red); }
+  .comment-input {
+    flex: 1;
+    min-width: 200px;
+  }
+  .comment-input textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    resize: vertical;
+    min-height: 36px;
+    max-height: 120px;
+  }
+  .comment-input textarea:focus { outline: none; border-color: var(--accent); }
+  .comment-input textarea::placeholder { color: var(--text-muted); }
+  .status-badge {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .status-pending { background: #2d2000; color: var(--yellow); }
+  .status-approved { background: #1a3a1a; color: var(--green); }
+  .status-flagged { background: #3a1a1a; color: var(--red); }
+
+  .summary-bar {
+    position: sticky;
+    bottom: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 2rem;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.4);
+  }
+  .summary-stats { display: flex; gap: 1.5rem; font-size: 0.9rem; }
+  .summary-stats span { display: flex; align-items: center; gap: 0.3rem; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot-green { background: var(--green); }
+  .dot-red { background: var(--red); }
+  .dot-yellow { background: var(--yellow); }
+  .export-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1.25rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: opacity 0.15s;
+  }
+  .export-btn:hover { opacity: 0.85; }
+  .export-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .output-area {
+    display: none;
+    margin-top: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem;
+  }
+  .output-area.visible { display: block; }
+  .output-area pre {
+    background: var(--code-bg);
+    padding: 1rem;
+    border-radius: 6px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.85rem;
+    color: var(--text);
+    max-height: 400px;
+    overflow-y: auto;
+  }
+  .copy-btn {
+    margin-top: 0.75rem;
+    background: var(--bg);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 0.4rem 0.9rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .copy-btn:hover { background: #1a2a3a; }
+  strong { color: #fff; }
+</style>
+</head>
+<body>
+
+<h1>Source-Based Gateway Routing</h1>
+<p class="subtitle">Design Spec Review &mdash; 2026-03-19 &mdash; Review each section, then export your feedback</p>
+
+<!-- Section: Problem -->
+<div class="section" data-section="problem">
+  <div class="section-header">
+    <h2>Problem</h2>
+    <span class="status-badge status-pending" data-status>Pending</span>
+  </div>
+  <div class="section-body">
+    <p>The gateway fans out every list query (<code>GET /api/bulks</code>) to all backends, merges results, and re-paginates. When the caller already knows which backend owns the data, this is wasteful. The <code>Source</code> property on <code>BulkOperation</code> exists but is nullable and not leveraged for routing optimization.</p>
+  </div>
+  <div class="review-controls">
+    <div class="vote-buttons">
+      <button class="vote-btn approve" onclick="vote(this, 'approved')">Approve</button>
+      <button class="vote-btn flag" onclick="vote(this, 'flagged')">Needs Changes</button>
+    </div>
+    <div class="comment-input">
+      <textarea placeholder="Optional comment..." rows="1" data-comment></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Goals -->
+<div class="section" data-section="goals">
+  <div class="section-header">
+    <h2>Goals</h2>
+    <span class="status-badge status-pending" data-status>Pending</span>
+  </div>
+  <div class="section-body">
+    <ol>
+      <li>Make <code>BulkOperation.Source</code> a reliable, always-present identifier for the owning backend service.</li>
+      <li>Allow the gateway to short-circuit list queries to a single backend when the caller specifies a <code>source</code> parameter.</li>
+      <li>Keep backward compatibility for single-service deployments (no required configuration).</li>
+    </ol>
+  </div>
+  <div class="review-controls">
+    <div class="vote-buttons">
+      <button class="vote-btn approve" onclick="vote(this, 'approved')">Approve</button>
+      <button class="vote-btn flag" onclick="vote(this, 'flagged')">Needs Changes</button>
+    </div>
+    <div class="comment-input">
+      <textarea placeholder="Optional comment..." rows="1" data-comment></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Non-Goals -->
+<div class="section" data-section="non-goals">
+  <div class="section-header">
+    <h2>Non-Goals</h2>
+    <span class="status-badge status-pending" data-status>Pending</span>
+  </div>
+  <div class="section-body">
+    <ul>
+      <li>Adding <code>Source</code> as a repository-level query filter. <code>Source</code> is a gateway routing concern, not a per-backend data filter.</li>
+      <li>Changing the fan-out behavior for <code>RouteBySourceServiceAsync</code> (operation-id-based routing). That path already uses caching and works well.</li>
+    </ul>
+  </div>
+  <div class="review-controls">
+    <div class="vote-buttons">
+      <button class="vote-btn approve" onclick="vote(this, 'approved')">Approve</button>
+      <button class="vote-btn flag" onclick="vote(this, 'flagged')">Needs Changes</button>
+    </div>
+    <div class="comment-input">
+      <textarea placeholder="Optional comment..." rows="1" data-comment></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Design 1 - Domain Model -->
+<div class="section" data-section="design-domain-model">
+  <div class="section-header">
+    <h2>Design 1: Domain Model &mdash; <code>BulkOperation.Source</code> becomes required</h2>
+    <span class="status-badge status-pending" data-status>Pending</span>
+  </div>
+  <div class="section-body">
+    <p class="file-ref"><strong>File:</strong> <code>src/BulkSharp.Core/Domain/Operations/BulkOperation.cs</code></p>
+    <p>Change <code>Source</code> from <code>string?</code> to <code>string</code>. Default to <code>string.Empty</code> so existing persisted records don't break deserialization.</p>
+
+    <p class="file-ref"><strong>File:</strong> <code>src/BulkSharp.Data.EntityFramework/BulkSharpDbContext.cs</code></p>
+    <p>Update the EF Core mapping to add <code>.IsRequired()</code> on the <code>Source</code> property. A database migration is required to backfill existing NULL <code>Source</code> rows with a default value (e.g., <code>"unknown"</code>) before altering the column to NOT NULL. The migration should be documented but not generated as part of this change (consumers generate their own migrations).</p>
+  </div>
+  <div class="review-controls">
+    <div class="vote-buttons">
+      <button class="vote-btn approve" onclick="vote(this, 'approved')">Approve</button>
+      <button class="vote-btn flag" onclick="vote(this, 'flagged')">Needs Changes</button>
+    </div>
+    <div class="comment-input">
+      <textarea placeholder="Optional comment..." rows="1" data-comment></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Design 2 - Auto-default ServiceName -->
+<div class="section" data-section="design-auto-default">
+  <div class="section-header">
+    <h2>Design 2: Auto-default <code>BulkSharpOptions.ServiceName</code></h2>
+    <span class="status-badge status-pending" data-status>Pending</span>
+  </div>
+  <div class="section-body">
+    <p class="file-ref"><strong>Files:</strong> <code>src/BulkSharp.Core/Configuration/BulkSharpOptions.cs</code>, <code>src/BulkSharp/ServiceCollectionExtensions.cs</code></p>
+    <p><code>ServiceName</code> stays <code>string?</code> in the options class. In <code>AddBulkSharp()</code> (in <code>ServiceCollectionExtensions.cs</code>), <strong>before</strong> the <code>AddOptions&lt;BulkSharpOptions&gt;().PostConfigure(...)</code> call, apply the default: if <code>ServiceName</code> is null after the user's configure action, set it to <code>Assembly.GetEntryAssembly()?.GetName().Name ?? "default"</code>.</p>
+    <p>This must happen before <code>PostConfigure</code> because the existing <code>PostConfigure</code> chain calls <code>options.Validate()</code> and ordering between multiple <code>PostConfigure</code> registrations is fragile. The same defaulting must also be applied in <code>AddBulkSharpApi()</code> which has its own options registration path.</p>
+    <p><strong>Note:</strong> <code>Assembly.GetEntryAssembly()</code> returns <code>null</code> in xUnit test hosts, so tests that don't explicitly set <code>ServiceName</code> will get <code>"default"</code>. This is acceptable and should be covered by a dedicated unit test.</p>
+  </div>
+  <div class="review-controls">
+    <div class="vote-buttons">
+      <button class="vote-btn approve" onclick="vote(this, 'approved')">Approve</button>
+      <button class="vote-btn flag" onclick="vote(this, 'flagged')">Needs Changes</button>
+    </div>
+    <div class="comment-input">
+      <textarea placeholder="Optional comment..." rows="1" data-comment></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Design 3 - Gateway Aggregator -->
+<div class="section" data-section="design-aggregator">
+  <div class="section-header">
+    <h2>Design 3: Gateway Aggregator &mdash; Single-backend short-circuit</h2>
+    <span class="status-badge status-pending" data-status>Pending</span>
+  </div>
+  <div class="section-body">
+    <p class="file-ref"><strong>File:</strong> <code>src/BulkSharp.Gateway/Services/GatewayAggregator.cs</code></p>
+    <p>Add a new method to <code>GatewayRouter</code>:</p>
+    <pre><code>public IBackendClient? GetClientByServiceName(string serviceName)</code></pre>
+    <p>This checks the list from <code>IBackendClientFactory.GetAllClients()</code> for a client whose <code>ServiceName</code> matches. Returns that client if found, null otherwise. It must <strong>not</strong> call <code>GetClient(name)</code> directly because <code>BackendClientFactory.GetClient</code> always returns a <code>BackendClient</code> (never null) &mdash; passing an unregistered name creates an <code>HttpClient</code> with no configured base address.</p>
+
+    <p>In <code>AggregateListAsync</code>, before fanning out:</p>
+    <ol>
+      <li>Parse the incoming query string (using <code>HttpUtility.ParseQueryString</code>).</li>
+      <li>Check for a <code>source</code> parameter.</li>
+      <li>If present, call <code>router.GetClientByServiceName(source)</code> to resolve the backend.</li>
+      <li>If a match is found, reconstruct the query string without <code>source</code>. If <code>source</code> was the only parameter, pass an empty string (not <code>"?"</code>). Call <code>client.GetBulksAsync(strippedQueryString)</code> and return the response directly &mdash; no merge, no re-sort, no re-pagination.</li>
+      <li>If no match is found, fall through to the existing fan-out behavior.</li>
+    </ol>
+    <p>When <code>source</code> is absent, behavior is identical to today.</p>
+  </div>
+  <div class="review-controls">
+    <div class="vote-buttons">
+      <button class="vote-btn approve" onclick="vote(this, 'approved')">Approve</button>
+      <button class="vote-btn flag" onclick="vote(this, 'flagged')">Needs Changes</button>
+    </div>
+    <div class="comment-input">
+      <textarea placeholder="Optional comment..." rows="1" data-comment></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Design 4 - Sample Gateway -->
+<div class="section" data-section="design-sample">
+  <div class="section-header">
+    <h2>Design 4: Sample Gateway</h2>
+    <span class="status-badge status-pending" data-status>Pending</span>
+  </div>
+  <div class="section-body">
+    <p class="file-ref"><strong>Directory:</strong> <code>samples/BulkSharp.Sample.Gateway</code></p>
+    <ul>
+      <li>Configure backends with explicit <code>ServiceName</code> values.</li>
+      <li>Show <code>Source</code> on operation listings in the dashboard so users can see which backend owns each operation.</li>
+      <li>Include sample queries demonstrating the <code>source</code> filter parameter.</li>
+    </ul>
+  </div>
+  <div class="review-controls">
+    <div class="vote-buttons">
+      <button class="vote-btn approve" onclick="vote(this, 'approved')">Approve</button>
+      <button class="vote-btn flag" onclick="vote(this, 'flagged')">Needs Changes</button>
+    </div>
+    <div class="comment-input">
+      <textarea placeholder="Optional comment..." rows="1" data-comment></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Testing -->
+<div class="section" data-section="testing">
+  <div class="section-header">
+    <h2>Design 5: Testing</h2>
+    <span class="status-badge status-pending" data-status>Pending</span>
+  </div>
+  <div class="section-body">
+    <p><strong>Aggregator unit tests</strong> (<code>tests/BulkSharp.Gateway.Tests/GatewayAggregatorTests.cs</code>):</p>
+    <ul>
+      <li><code>source</code> present and matches a backend: routes to single backend, returns its response directly.</li>
+      <li><code>source</code> present but no match: falls through to fan-out.</li>
+      <li><code>source</code> absent: fan-out as today (existing tests cover this).</li>
+      <li><code>source</code> parameter is stripped from the forwarded query string.</li>
+      <li><code>source</code> as the only query parameter: forwards empty string, not <code>"?"</code>.</li>
+    </ul>
+    <p><strong>ServiceName auto-default tests</strong> (<code>tests/BulkSharp.UnitTests/Configuration/</code>):</p>
+    <ul>
+      <li>When <code>ServiceName</code> is null, defaults to entry assembly name (or <code>"default"</code> in test hosts).</li>
+      <li>When <code>ServiceName</code> is explicitly set, it is preserved.</li>
+    </ul>
+    <p><strong>Integration tests</strong> (<code>tests/BulkSharp.Gateway.IntegrationTests/GatewayEndpointTests.cs</code>):</p>
+    <ul>
+      <li><code>GET /api/bulks?source=svc-a</code> returns only that backend's operations without contacting other backends.</li>
+    </ul>
+  </div>
+  <div class="review-controls">
+    <div class="vote-buttons">
+      <button class="vote-btn approve" onclick="vote(this, 'approved')">Approve</button>
+      <button class="vote-btn flag" onclick="vote(this, 'flagged')">Needs Changes</button>
+    </div>
+    <div class="comment-input">
+      <textarea placeholder="Optional comment..." rows="1" data-comment></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Affected Files -->
+<div class="section" data-section="affected-files">
+  <div class="section-header">
+    <h2>Affected Files</h2>
+    <span class="status-badge status-pending" data-status>Pending</span>
+  </div>
+  <div class="section-body">
+    <table>
+      <thead><tr><th>File</th><th>Change</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/BulkSharp.Core/Domain/Operations/BulkOperation.cs</code></td><td><code>Source</code>: <code>string?</code> to <code>string</code></td></tr>
+        <tr><td><code>src/BulkSharp.Core/Configuration/BulkSharpOptions.cs</code></td><td>Auto-default logic for <code>ServiceName</code></td></tr>
+        <tr><td><code>src/BulkSharp/ServiceCollectionExtensions.cs</code></td><td>Apply <code>ServiceName</code> default (both <code>AddBulkSharp</code> and <code>AddBulkSharpApi</code>)</td></tr>
+        <tr><td><code>src/BulkSharp.Data.EntityFramework/BulkSharpDbContext.cs</code></td><td>Add <code>.IsRequired()</code> to <code>Source</code> mapping</td></tr>
+        <tr><td><code>src/BulkSharp.Gateway/Routing/GatewayRouter.cs</code></td><td>Add <code>GetClientByServiceName()</code> method</td></tr>
+        <tr><td><code>src/BulkSharp.Gateway/Services/GatewayAggregator.cs</code></td><td>Single-backend short-circuit in <code>AggregateListAsync</code></td></tr>
+        <tr><td><code>samples/BulkSharp.Sample.Gateway/</code></td><td>Demonstrate <code>source</code> routing</td></tr>
+        <tr><td><code>tests/BulkSharp.Gateway.Tests/GatewayAggregatorTests.cs</code></td><td>New unit tests</td></tr>
+        <tr><td><code>tests/BulkSharp.Gateway.IntegrationTests/GatewayEndpointTests.cs</code></td><td>New integration test</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="review-controls">
+    <div class="vote-buttons">
+      <button class="vote-btn approve" onclick="vote(this, 'approved')">Approve</button>
+      <button class="vote-btn flag" onclick="vote(this, 'flagged')">Needs Changes</button>
+    </div>
+    <div class="comment-input">
+      <textarea placeholder="Optional comment..." rows="1" data-comment></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Deployment Constraint -->
+<div class="section" data-section="deployment-constraint">
+  <div class="section-header">
+    <h2>Deployment Constraint</h2>
+    <span class="status-badge status-pending" data-status>Pending</span>
+  </div>
+  <div class="section-body">
+    <p>The gateway's backend <code>Name</code> (configured via <code>AddBackend("svc-a", ...)</code>) must exactly match the corresponding backend's <code>BulkSharpOptions.ServiceName</code>. The <code>source</code> query parameter carries the value from <code>BulkOperation.Source</code>, which is stamped from <code>BulkSharpOptions.ServiceName</code> on the backend that created it. The gateway matches this against <code>client.ServiceName</code>, which comes from the backend <code>Name</code> in gateway config.</p>
+    <p>If these don't align, the short-circuit silently falls through to fan-out (no error, just no optimization). This should be validated at startup with a log warning if a <code>source</code> value is seen that doesn't match any registered backend.</p>
+  </div>
+  <div class="review-controls">
+    <div class="vote-buttons">
+      <button class="vote-btn approve" onclick="vote(this, 'approved')">Approve</button>
+      <button class="vote-btn flag" onclick="vote(this, 'flagged')">Needs Changes</button>
+    </div>
+    <div class="comment-input">
+      <textarea placeholder="Optional comment..." rows="1" data-comment></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Section: Tradeoffs -->
+<div class="section" data-section="tradeoffs">
+  <div class="section-header">
+    <h2>Tradeoffs</h2>
+    <span class="status-badge status-pending" data-status>Pending</span>
+  </div>
+  <div class="section-body">
+    <ul>
+      <li><strong>Backend rename/split:</strong> If a backend's <code>ServiceName</code> changes, persisted <code>Source</code> values in the DB become stale. The gateway's 1-hour cache TTL handles transient routing, but historical operations will still reference the old name. This is acceptable &mdash; renaming a service is a migration event.</li>
+      <li><strong>Assembly name as default:</strong> Using the entry assembly name is convenient but fragile if the assembly is renamed. For multi-service deployments, explicit <code>ServiceName</code> configuration should be documented as the recommended approach.</li>
+    </ul>
+  </div>
+  <div class="review-controls">
+    <div class="vote-buttons">
+      <button class="vote-btn approve" onclick="vote(this, 'approved')">Approve</button>
+      <button class="vote-btn flag" onclick="vote(this, 'flagged')">Needs Changes</button>
+    </div>
+    <div class="comment-input">
+      <textarea placeholder="Optional comment..." rows="1" data-comment></textarea>
+    </div>
+  </div>
+</div>
+
+<!-- Summary Bar -->
+<div class="summary-bar">
+  <div class="summary-stats">
+    <span><span class="dot dot-green"></span> Approved: <strong id="count-approved">0</strong></span>
+    <span><span class="dot dot-red"></span> Flagged: <strong id="count-flagged">0</strong></span>
+    <span><span class="dot dot-yellow"></span> Pending: <strong id="count-pending">11</strong></span>
+  </div>
+  <button class="export-btn" onclick="exportReview()">Export Review</button>
+</div>
+
+<!-- Output -->
+<div class="output-area" id="output">
+  <h2 style="margin-bottom: 0.75rem; font-size: 1.1rem; color: #fff;">Review Output</h2>
+  <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.75rem;">Copy and paste this back into the Claude Code terminal:</p>
+  <pre id="output-text"></pre>
+  <button class="copy-btn" onclick="copyOutput()">Copy to Clipboard</button>
+</div>
+
+<script>
+function vote(btn, status) {
+  const section = btn.closest('.section');
+  const buttons = section.querySelectorAll('.vote-btn');
+  const badge = section.querySelector('[data-status]');
+
+  buttons.forEach(b => b.classList.remove('active'));
+
+  if (badge.textContent.toLowerCase() === status) {
+    badge.textContent = 'Pending';
+    badge.className = 'status-badge status-pending';
+    section.dataset.vote = '';
+  } else {
+    btn.classList.add('active');
+    badge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+    badge.className = 'status-badge status-' + status;
+    section.dataset.vote = status;
+  }
+
+  updateCounts();
+}
+
+function updateCounts() {
+  const sections = document.querySelectorAll('.section');
+  let approved = 0, flagged = 0, pending = 0;
+  sections.forEach(s => {
+    const v = s.dataset.vote;
+    if (v === 'approved') approved++;
+    else if (v === 'flagged') flagged++;
+    else pending++;
+  });
+  document.getElementById('count-approved').textContent = approved;
+  document.getElementById('count-flagged').textContent = flagged;
+  document.getElementById('count-pending').textContent = pending;
+}
+
+function exportReview() {
+  const sections = document.querySelectorAll('.section');
+  const lines = [];
+  const total = sections.length;
+  let approved = 0, flagged = 0;
+
+  lines.push('# Spec Review: Source-Based Gateway Routing');
+  lines.push('');
+
+  sections.forEach(s => {
+    const name = s.querySelector('h2').textContent;
+    const vote = s.dataset.vote || 'pending';
+    const comment = s.querySelector('[data-comment]').value.trim();
+    const icon = vote === 'approved' ? 'APPROVED' : vote === 'flagged' ? 'NEEDS CHANGES' : 'PENDING';
+
+    if (vote === 'approved') approved++;
+    if (vote === 'flagged') flagged++;
+
+    lines.push('## ' + name);
+    lines.push('Status: ' + icon);
+    if (comment) {
+      lines.push('Comment: ' + comment);
+    }
+    lines.push('');
+  });
+
+  lines.push('---');
+  lines.push('Summary: ' + approved + '/' + total + ' approved, ' + flagged + ' flagged, ' + (total - approved - flagged) + ' pending');
+
+  if (flagged === 0 && approved === total) {
+    lines.push('');
+    lines.push('VERDICT: All sections approved. Proceed with implementation planning.');
+  } else if (flagged > 0) {
+    lines.push('');
+    lines.push('VERDICT: ' + flagged + ' section(s) need changes before proceeding.');
+  }
+
+  const output = lines.join('\n');
+  document.getElementById('output-text').textContent = output;
+  document.getElementById('output').classList.add('visible');
+}
+
+function copyOutput() {
+  const text = document.getElementById('output-text').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy to Clipboard', 2000);
+  });
+}
+</script>
+
+</body>
+</html>

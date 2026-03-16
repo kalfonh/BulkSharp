@@ -1,0 +1,46 @@
+using BulkSharp.Core.Domain.Export;
+using BulkSharp.Core.Domain.Operations;
+using BulkSharp.Core.Domain.Queries;
+using BulkSharp.Core.Domain.Retry;
+
+namespace BulkSharp.Core.Abstractions.Operations;
+
+/// <summary>Main service for creating, querying, and managing bulk operations.</summary>
+public interface IBulkOperationService : IBulkOperationQueryService
+{
+    Task<Guid> CreateBulkOperationAsync<TMetadata>(
+        string operationName,
+        Stream fileStream,
+        string fileName,
+        TMetadata metadata,
+        string createdBy,
+        CancellationToken cancellationToken = default)
+        where TMetadata : class;
+
+    /// <summary>
+    /// Creates a bulk operation using pre-serialized metadata JSON.
+    /// Avoids deserialize/re-serialize round-trip when the caller already has raw JSON.
+    /// </summary>
+    Task<Guid> CreateBulkOperationAsync(
+        string operationName,
+        Stream fileStream,
+        string fileName,
+        string metadataJson,
+        string createdBy,
+        CancellationToken cancellationToken = default);
+
+    Task CancelBulkOperationAsync(Guid operationId, CancellationToken cancellationToken = default);
+
+    Task<BulkValidationResult> ValidateBulkOperationAsync(
+        string operationName,
+        string metadataJson,
+        Stream fileStream,
+        string fileName,
+        CancellationToken cancellationToken = default);
+
+    Task<RetrySubmission> RetryFailedRowsAsync(Guid operationId, RetryRequest request, CancellationToken cancellationToken = default);
+    Task<RetrySubmission> RetryRowAsync(Guid operationId, int rowNumber, CancellationToken cancellationToken = default);
+    Task<RetryEligibility> CanRetryAsync(Guid operationId, CancellationToken cancellationToken = default);
+    Task<ExportResult> ExportAsync(Guid operationId, ExportRequest request, CancellationToken cancellationToken = default);
+    Task<PagedResult<BulkRowRetryHistory>> QueryRetryHistoryAsync(BulkRowRetryHistoryQuery query, CancellationToken cancellationToken = default);
+}

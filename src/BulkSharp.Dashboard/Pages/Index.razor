@@ -1,0 +1,360 @@
+@page "/"
+@using BulkSharp.Core.Domain.Operations
+@using System.Net.Http
+@using System.Net.Http.Json
+@using BulkSharp.Core.Domain.Queries
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject ILogger<Index> Logger
+@inject ToastService toastService
+
+<PageTitle>BulkSharp Dashboard</PageTitle>
+
+<!-- Hero -->
+<div class="hero-banner d-flex justify-content-between align-items-center flex-wrap gap-3">
+    <div>
+        <h1><i class="bi bi-grid-1x2 me-2"></i>BulkSharp Dashboard</h1>
+        <p>Manage and monitor your bulk data processing operations</p>
+    </div>
+    <div class="hero-actions d-flex gap-2">
+        <a href="/create" class="btn btn-light btn-sm shadow-sm">
+            <i class="bi bi-plus-circle me-1"></i>New Operation
+        </a>
+        <a href="/bulks-list" class="btn btn-outline-light btn-sm">
+            <i class="bi bi-list-task me-1"></i>All Operations
+        </a>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                <i class="bi bi-list-task"></i>
+            </div>
+            <div>
+                <div class="stat-label">Total</div>
+                <div class="stat-value">@totalOperations</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-info bg-opacity-10 text-info">
+                <i class="bi bi-play-circle"></i>
+            </div>
+            <div>
+                <div class="stat-label">Running</div>
+                <div class="stat-value text-info">@runningOperations</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-success bg-opacity-10 text-success">
+                <i class="bi bi-check-circle"></i>
+            </div>
+            <div>
+                <div class="stat-label">Completed</div>
+                <div class="stat-value text-success">@completedOperations</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-danger bg-opacity-10 text-danger">
+                <i class="bi bi-x-circle"></i>
+            </div>
+            <div>
+                <div class="stat-label">Failed</div>
+                <div class="stat-value text-danger">@failedOperations</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Recent Operations -->
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center py-3">
+                <h6 class="mb-0 fw-semibold">Recent Operations</h6>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="RefreshData">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+            </div>
+            <div class="card-body p-0">
+                @if (recentOperations == null)
+                {
+                    <div class="text-center py-4">
+                        <div class="spinner-border spinner-border-sm text-primary"></div>
+                    </div>
+                }
+                else if (!recentOperations.Any())
+                {
+                    <div class="empty-state">
+                        <i class="bi bi-inbox d-block"></i>
+                        <p>No operations yet. Run a sample to get started.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="list-group list-group-flush">
+                        @foreach (var op in recentOperations.Take(5))
+                        {
+                            <a href="/bulk/@op.Id" class="list-group-item list-group-item-action px-3 py-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="fw-semibold">@op.OperationName</div>
+                                        <small class="text-muted">
+                                            @op.CreatedBy &middot; @op.CreatedAt.ToString("MMM dd, HH:mm")
+                                        </small>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge @GetStatusBadgeClass(op.Status)">@op.Status</span>
+                                        @if (op.TotalRows > 0)
+                                        {
+                                            <div class="small text-muted mt-1">
+                                                @op.ProcessedRows / @op.TotalRows rows
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                                @if (op.Status == BulkOperationStatus.Running && op.TotalRows > 0)
+                                {
+                                    var progress = (op.ProcessedRows * 100.0 / op.TotalRows);
+                                    <div class="progress mt-2" style="height: 3px;">
+                                        <div class="progress-bar" style="width: @progress%"></div>
+                                    </div>
+                                }
+                            </a>
+                        }
+                    </div>
+                }
+            </div>
+            @if (recentOperations?.Any() == true)
+            {
+                <div class="card-footer bg-white text-center py-2">
+                    <a href="/bulks-list" class="btn btn-sm btn-outline-primary">
+                        View All <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Available Operations with Run Sample -->
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-header bg-white border-bottom py-3">
+                <h6 class="mb-0 fw-semibold">Available Operations</h6>
+            </div>
+            <div class="card-body p-0">
+                @if (availableOperations == null)
+                {
+                    <div class="text-center py-4">
+                        <div class="spinner-border spinner-border-sm text-primary"></div>
+                    </div>
+                }
+                else if (!availableOperations.Any())
+                {
+                    <div class="empty-state">
+                        <i class="bi bi-plugin d-block"></i>
+                        <p>No operations discovered</p>
+                        <small class="text-muted d-block">Implement IBulkRowOperation and decorate with [BulkOperation] to register</small>
+                    </div>
+                }
+                else
+                {
+                    <div class="p-3 d-flex flex-column gap-2">
+                        @foreach (var op in availableOperations)
+                        {
+                            var opRunning = runningSamples.Contains(op.Name);
+                            <div class="op-info-card">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div style="flex: 1; min-width: 0;">
+                                        <h6>@op.Name</h6>
+                                        @if (!string.IsNullOrEmpty(op.Description))
+                                        {
+                                            <div class="op-description">@op.Description</div>
+                                        }
+                                        <div class="op-meta">
+                                            @if (!string.IsNullOrEmpty(op.MetadataType))
+                                            {
+                                                <span class="badge bg-light text-dark border">
+                                                    <i class="bi bi-tag me-1"></i>@op.MetadataType
+                                                </span>
+                                            }
+                                            @if (!string.IsNullOrEmpty(op.RowType))
+                                            {
+                                                <span class="badge bg-light text-dark border">
+                                                    <i class="bi bi-grid me-1"></i>@op.RowType
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="d-flex flex-column gap-1 ms-2">
+                                        <a href="/api/operations/@op.Name/template" class="btn btn-sm btn-outline-secondary"
+                                           title="Download CSV template" target="_blank" download>
+                                            <i class="bi bi-download"></i>
+                                        </a>
+                                        <a href="/create?operation=@Uri.EscapeDataString(op.Name)" class="btn btn-sm btn-outline-primary" title="Upload custom file">
+                                            <i class="bi bi-upload"></i>
+                                        </a>
+                                        <button class="btn btn-sm btn-success" title="Run with template data"
+                                                disabled="@opRunning" @onclick="() => RunSample(op.Name)">
+                                            @if (opRunning)
+                                            {
+                                                <span class="spinner-border spinner-border-sm"></span>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-play-fill"></i>
+                                            }
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@code {
+    private class DisplayedBulkOperation
+    {
+        public Guid Id { get; set; }
+        public string OperationName { get; set; } = string.Empty;
+        public string CreatedBy { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+        public BulkOperationStatus Status { get; set; }
+        public int TotalRows { get; set; }
+        public int ProcessedRows { get; set; }
+        public int SuccessfulRows { get; set; }
+        public int FailedRows { get; set; }
+    }
+
+    private class DiscoveredOperation
+    {
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public string? MetadataType { get; set; }
+        public string? RowType { get; set; }
+    }
+
+    private List<DisplayedBulkOperation>? recentOperations;
+    private List<DiscoveredOperation>? availableOperations;
+    private HashSet<string> runningSamples = new();
+    private bool isRunning;
+
+    private int totalOperations => recentOperations?.Count ?? 0;
+    private int runningOperations => recentOperations?.Count(o => o.Status == BulkOperationStatus.Running) ?? 0;
+    private int completedOperations => recentOperations?.Count(o => o.Status == BulkOperationStatus.Completed) ?? 0;
+    private int failedOperations => recentOperations?.Count(o => o.Status == BulkOperationStatus.Failed) ?? 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Http.BaseAddress ??= new Uri(Navigation.BaseUri);
+        await Task.WhenAll(LoadRecentOperations(), LoadAvailableOperations());
+    }
+
+    private async Task LoadRecentOperations()
+    {
+        try
+        {
+            var result = await Http.GetFromJsonAsync<PagedResult<DisplayedBulkOperation>>("api/bulks");
+            recentOperations = result?.Items.ToList() ?? [];
+        }
+        catch (Exception ex) { Logger.LogWarning(ex, "Failed to load recent operations"); recentOperations = []; }
+    }
+
+    private async Task LoadAvailableOperations()
+    {
+        try { availableOperations = await Http.GetFromJsonAsync<List<DiscoveredOperation>>("api/operations"); }
+        catch (Exception ex) { Logger.LogWarning(ex, "Failed to load available operations"); availableOperations = []; }
+    }
+
+    private async Task RunSample(string operationName)
+    {
+        if (isRunning) return;
+        isRunning = true;
+        runningSamples.Add(operationName);
+        StateHasChanged();
+
+        try
+        {
+            Http.BaseAddress ??= new Uri(Navigation.BaseUri);
+
+            // Download template
+            var templateResponse = await Http.GetAsync($"api/operations/{Uri.EscapeDataString(operationName)}/template");
+            if (!templateResponse.IsSuccessStatusCode)
+            {
+                toastService.Show("Error", $"Failed to download template for {operationName}", ToastLevel.Error);
+                return;
+            }
+
+            var templateBytes = await templateResponse.Content.ReadAsByteArrayAsync();
+
+            // Create operation with template file
+            using var content = new MultipartFormDataContent();
+            content.Add(new StringContent(operationName), "operationName");
+            content.Add(new StringContent("sample"), "createdBy");
+            content.Add(new StringContent("{}"), "metadata");
+            content.Add(new ByteArrayContent(templateBytes), "file", "template.csv");
+
+            var createResponse = await Http.PostAsync("api/bulks", content);
+            if (createResponse.IsSuccessStatusCode)
+            {
+                var json = await createResponse.Content.ReadAsStringAsync();
+                var doc = System.Text.Json.JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("operationId", out var idProp) ||
+                    doc.RootElement.TryGetProperty("OperationId", out idProp))
+                {
+                    var opId = idProp.GetString();
+                    toastService.Show("Success", $"Operation '{operationName}' started", ToastLevel.Success);
+                    Navigation.NavigateTo($"/bulk/{opId}");
+                    return;
+                }
+                toastService.Show("Success", $"Operation '{operationName}' started", ToastLevel.Success);
+            }
+            else
+            {
+                var error = await createResponse.Content.ReadAsStringAsync();
+                toastService.Show("Error", $"Failed to create operation: {error}", ToastLevel.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            toastService.Show("Error", $"Failed: {ex.Message}", ToastLevel.Error);
+        }
+        finally
+        {
+            isRunning = false;
+            runningSamples.Remove(operationName);
+            await LoadRecentOperations();
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        recentOperations = null;
+        await LoadRecentOperations();
+        StateHasChanged();
+    }
+
+    private string GetStatusBadgeClass(BulkOperationStatus status) => status switch
+    {
+        BulkOperationStatus.Pending => "bg-warning text-dark",
+        BulkOperationStatus.Running => "bg-info text-white",
+        BulkOperationStatus.Completed => "bg-success text-white",
+        BulkOperationStatus.Failed => "bg-danger text-white",
+        BulkOperationStatus.Cancelled => "bg-secondary text-white",
+        _ => "bg-light text-dark"
+    };
+}
