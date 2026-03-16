@@ -1,0 +1,16 @@
+global using System;
+global using System.Text;
+global using BulkSharp.Core.Attributes;
+global using BulkSharp.Core.Exceptions;
+global using BulkSharp;
+global using BulkSharp.Processing;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Hosting;
+global using Microsoft.Extensions.Logging;
+global using BulkSharp.Core.Abstractions.Operations;
+global using BulkSharp.Sample.UserImport;
+global using BulkSharp.Core.Abstractions.Processing;
+global using BulkSharp.Core;
+global using BulkSharp.Sample.UserImport.RegularBulk;
+global using BulkSharp.Sample.UserImport.StepBased;
+global using BulkSharp.Core.Domain.Operations;

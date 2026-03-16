@@ -1,0 +1,9 @@
+<Project>
+  <!-- Inherit root props -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..'))" />
+
+  <PropertyGroup>
+    <!-- Samples demonstrate usage patterns — library logging rules don't apply -->
+    <NoWarn>$(NoWarn);CA1848</NoWarn>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,621 @@
+@page "/bulk/{id:guid}"
+@using BulkSharp.Core.Domain.Operations
+@using System.Net.Http.Json
+@using BulkSharp.Core.Domain.Queries
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject ILogger<OperationDetails> Logger
+@implements IDisposable
+
+<PageTitle>Operation Details</PageTitle>
+
+@if (!string.IsNullOrEmpty(pageError))
+{
+    <div class="alert alert-danger d-flex align-items-center mt-3 py-2" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <div>@pageError</div>
+    </div>
+}
+else if (notFound)
+{
+    <div class="text-center py-5">
+        <i class="bi bi-search d-block text-muted" style="font-size: 2rem;"></i>
+        <p class="text-muted mt-2">Operation not found.</p>
+        <a href="/bulks-list" class="btn btn-sm btn-outline-primary">Back to Operations</a>
+    </div>
+}
+else if (operation == null)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border spinner-border-sm text-primary"></div>
+        <p class="text-muted mt-2">Loading operation...</p>
+    </div>
+}
+else
+{
+    <div class="page-header d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <a href="/bulks-list" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i>
+                </a>
+                <h1 class="mb-0">@operation.OperationName</h1>
+                <span class="badge @GetStatusBadgeClass(operation.Status) ms-1">@operation.Status</span>
+            </div>
+            <p class="text-muted mb-0 ms-5 ps-2">
+                ID: <code>@operation.Id</code>
+            </p>
+        </div>
+    </div>
+
+    <!-- Info + Progress Row -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-white py-2">
+                    <h6 class="mb-0 fw-semibold">Operation Info</h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0" style="font-size: 0.875rem;">
+                        <dt class="col-sm-5 text-muted">Created</dt>
+                        <dd class="col-sm-7">@operation.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</dd>
+
+                        <dt class="col-sm-5 text-muted">Started</dt>
+                        <dd class="col-sm-7">@(operation.StartedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "-")</dd>
+
+                        <dt class="col-sm-5 text-muted">Completed</dt>
+                        <dd class="col-sm-7">@(operation.CompletedAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "-")</dd>
+
+                        @if (operation.CompletedAt.HasValue)
+                        {
+                            <dt class="col-sm-5 text-muted">Duration</dt>
+                            <dd class="col-sm-7">@FormatDuration(operation.CompletedAt.Value - (operation.StartedAt ?? operation.CreatedAt))</dd>
+                        }
+
+                        <dt class="col-sm-5 text-muted">Created By</dt>
+                        <dd class="col-sm-7">@operation.CreatedBy</dd>
+                    </dl>
+
+                    @if (operation.FileId != Guid.Empty)
+                    {
+                        <div class="row g-2 mt-2 pt-2 border-top">
+                            <div class="col-12">
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <div>
+                                        <small class="text-muted d-block">File</small>
+                                        <span>@operation.FileName</span>
+                                        <small class="text-muted ms-2">(@FormatFileSize(operation.FileSize))</small>
+                                    </div>
+                                    <a href="api/bulks/@operation.Id/file"
+                                       class="btn btn-sm btn-outline-primary"
+                                       target="_blank"
+                                       download="@operation.FileName">
+                                        <i class="bi bi-download me-1"></i>Download
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-header bg-white py-2">
+                    <h6 class="mb-0 fw-semibold">Progress</h6>
+                </div>
+                <div class="card-body">
+                    @if (operation.TotalRows > 0)
+                    {
+                        var progress = (double)operation.ProcessedRows / operation.TotalRows * 100;
+                        <div class="progress mb-3" style="height: 8px;">
+                            <div class="progress-bar @(operation.Status == BulkOperationStatus.Failed ? "bg-danger" : "")"
+                                 style="width: @(progress)%"></div>
+                        </div>
+                    }
+
+                    <div class="row text-center">
+                        <div class="col-3">
+                            <div class="fw-bold" style="font-size: 1.25rem;">@operation.TotalRows</div>
+                            <small class="text-muted">Total</small>
+                        </div>
+                        <div class="col-3">
+                            <div class="fw-bold" style="font-size: 1.25rem;">@operation.ProcessedRows</div>
+                            <small class="text-muted">Processed</small>
+                        </div>
+                        <div class="col-3">
+                            <div class="fw-bold text-success" style="font-size: 1.25rem;">@operation.SuccessfulRows</div>
+                            <small class="text-muted">Success</small>
+                        </div>
+                        <div class="col-3">
+                            <div class="fw-bold text-danger" style="font-size: 1.25rem;">@operation.FailedRows</div>
+                            <small class="text-muted">Failed</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(operation.ErrorMessage))
+    {
+        <div class="alert alert-danger d-flex align-items-start gap-2" role="alert">
+            <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+            <div>
+                <strong>Error</strong>
+                <pre class="mb-0 mt-1" style="font-size: 0.8rem; white-space: pre-wrap;">@operation.ErrorMessage</pre>
+            </div>
+        </div>
+    }
+
+    <!-- Errors Section -->
+    @if (errorResult != null && errorResult.TotalCount > 0)
+    {
+        <div class="card mb-3">
+            <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-semibold">Row Errors</h6>
+                <span class="badge bg-danger">@errorResult.TotalCount</span>
+            </div>
+            <div class="card-body py-2">
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <input type="text" class="form-control form-control-sm" placeholder="Filter by Row ID..."
+                               @bind="errorFilterRowId" @bind:event="oninput" @bind:after="OnErrorFilterChanged" />
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select form-select-sm" @bind="errorFilterType" @bind:after="OnErrorFilterChanged">
+                            <option value="">All Types</option>
+                            <option value="Validation">Validation</option>
+                            <option value="Processing">Processing</option>
+                            <option value="StepFailure">Step Failure</option>
+                            <option value="Timeout">Timeout</option>
+                            <option value="SignalFailure">Signal Failure</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 80px; cursor:pointer;" @onclick='() => ToggleErrorSort("RowNumber")'>
+                                    Row @ErrorSortIndicator("RowNumber")
+                                </th>
+                                <th style="width: 180px; cursor:pointer;" @onclick='() => ToggleErrorSort("ErrorType")'>
+                                    Type @ErrorSortIndicator("ErrorType")
+                                </th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var error in errorResult.Items)
+                            {
+                                <tr>
+                                    <td>@(error.RowId ?? $"#{error.RowNumber}")</td>
+                                    <td><code>@error.ErrorType</code></td>
+                                    <td>@error.ErrorMessage</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination -->
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+                    <small class="text-muted">
+                        Showing @(((errorPage - 1) * errorPageSize) + 1)–@Math.Min(errorPage * errorPageSize, errorResult.TotalCount)
+                        of @errorResult.TotalCount
+                    </small>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item @(errorPage <= 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => GoToErrorPage(errorPage - 1)">Prev</button>
+                            </li>
+                            @for (int p = Math.Max(1, errorPage - 2); p <= Math.Min(ErrorTotalPages, errorPage + 2); p++)
+                            {
+                                var pg = p;
+                                <li class="page-item @(pg == errorPage ? "active" : "")">
+                                    <button class="page-link" @onclick="() => GoToErrorPage(pg)">@pg</button>
+                                </li>
+                            }
+                            <li class="page-item @(!errorResult.HasNextPage ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => GoToErrorPage(errorPage + 1)">Next</button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Row Status Section -->
+    @if (rowResult != null && rowResult.TotalCount > 0)
+    {
+        <div class="card">
+            <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-semibold">Row Status</h6>
+                <span class="badge bg-info text-white">@rowResult.TotalCount rows</span>
+            </div>
+            <div class="card-body py-2">
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <input type="text" class="form-control form-control-sm" placeholder="Filter by Row ID..."
+                               @bind="rowFilterRowId" @bind:event="oninput" @bind:after="OnRowFilterChanged" />
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select form-select-sm" @bind="rowFilterState" @bind:after="OnRowFilterChanged">
+                            <option value="">All States</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Running">Running</option>
+                            <option value="WaitingForCompletion">Waiting</option>
+                            <option value="Completed">Completed</option>
+                            <option value="Failed">Failed</option>
+                            <option value="TimedOut">Timed Out</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="text" class="form-control form-control-sm" placeholder="Filter by Step Name..."
+                               @bind="rowFilterStepName" @bind:event="oninput" @bind:after="OnRowFilterChanged" />
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 40px;"></th>
+                                <th style="width: 80px;">Row #</th>
+                                <th>Current Step</th>
+                                <th style="width: 140px;">State</th>
+                                <th style="width: 140px;">Progress</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in rowResult.Items)
+                            {
+                                var isExpanded = expandedRows.Contains(row.RowNumber);
+                                <tr @onclick="() => ToggleRowExpansion(row.RowNumber)" style="cursor: pointer;">
+                                    <td class="text-center">
+                                        <i class="bi @(isExpanded ? "bi-chevron-down" : "bi-chevron-right")"></i>
+                                    </td>
+                                    <td>@(row.RowId ?? $"#{row.RowNumber}")</td>
+                                    <td>@row.CurrentStep</td>
+                                    <td><span class="badge @GetRowStateBadgeClass(row.CurrentState)">@row.CurrentState</span></td>
+                                    <td>@row.CompletedSteps / @row.TotalSteps</td>
+                                </tr>
+                                @if (isExpanded)
+                                {
+                                    <tr>
+                                        <td colspan="5" class="p-0">
+                                            <table class="table table-sm mb-0 ms-4" style="font-size: 0.8rem; background-color: #f8f9fa;">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Step Name</th>
+                                                        <th style="width: 120px;">State</th>
+                                                        <th style="width: 200px;">Signal Key</th>
+                                                        <th style="width: 160px;">Started At</th>
+                                                        <th style="width: 160px;">Completed At</th>
+                                                        <th>Error</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var step in row.Steps)
+                                                    {
+                                                        <tr>
+                                                            <td>@step.StepName</td>
+                                                            <td><span class="badge @GetRowStateBadgeClass(step.State)">@step.State</span></td>
+                                                            <td><code style="font-size: 0.75rem;">@(step.SignalKey ?? "-")</code></td>
+                                                            <td>@step.StartedAt.ToString("HH:mm:ss")</td>
+                                                            <td>@(step.CompletedAt?.ToString("HH:mm:ss") ?? "-")</td>
+                                                            <td class="text-danger">@(step.ErrorMessage ?? "")</td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination -->
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-top">
+                    <small class="text-muted">
+                        Showing @(((rowPage - 1) * rowPageSize) + 1)–@Math.Min(rowPage * rowPageSize, rowResult.TotalCount)
+                        of @rowResult.TotalCount
+                    </small>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item @(rowPage <= 1 ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => GoToRowPage(rowPage - 1)">Prev</button>
+                            </li>
+                            @for (int p = Math.Max(1, rowPage - 2); p <= Math.Min(RowTotalPages, rowPage + 2); p++)
+                            {
+                                var pg = p;
+                                <li class="page-item @(pg == rowPage ? "active" : "")">
+                                    <button class="page-link" @onclick="() => GoToRowPage(pg)">@pg</button>
+                                </li>
+                            }
+                            <li class="page-item @(!rowResult.HasNextPage ? "disabled" : "")">
+                                <button class="page-link" @onclick="() => GoToRowPage(rowPage + 1)">Next</button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    }
+
+}
+
+@code {
+    [Parameter] public Guid id { get; set; } = Guid.Empty;
+
+    // DTOs for JSON deserialization
+    private class PagedErrorResult
+    {
+        public List<DisplayedBulkOperationError> Items { get; set; } = [];
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public bool HasNextPage { get; set; }
+    }
+
+    private class PagedRowResult
+    {
+        public List<RowStatusInfo> Items { get; set; } = [];
+        public int TotalCount { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public bool HasNextPage { get; set; }
+    }
+
+    public class DisplayedBulkOperationError
+    {
+        public Guid Id { get; set; }
+        public Guid BulkOperationId { get; set; }
+        public int RowNumber { get; set; }
+        public string? RowId { get; set; }
+        public string ErrorType { get; set; } = string.Empty;
+        public string ErrorMessage { get; set; } = string.Empty;
+        public string? RowData { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+
+    private class RowStatusInfo
+    {
+        public int RowNumber { get; set; }
+        public string? RowId { get; set; }
+        public string CurrentStep { get; set; } = "";
+        public string CurrentState { get; set; } = "";
+        public int CompletedSteps { get; set; }
+        public int TotalSteps { get; set; }
+        public List<StepStatusInfo> Steps { get; set; } = [];
+    }
+
+    private class StepStatusInfo
+    {
+        public string StepName { get; set; } = "";
+        public string State { get; set; } = "";
+        public string? SignalKey { get; set; }
+        public DateTime StartedAt { get; set; }
+        public DateTime? CompletedAt { get; set; }
+        public string? ErrorMessage { get; set; }
+    }
+
+    private BulkOperation? operation;
+    private PagedErrorResult? errorResult;
+    private PagedRowResult? rowResult;
+    private HashSet<int> expandedRows = [];
+    private System.Threading.Timer? pollingTimer;
+    private bool notFound;
+    private string pageError = "";
+    private CancellationTokenSource _cts = new();
+
+    // Error filters
+    private string errorFilterRowId = "";
+    private string errorFilterType = "";
+    private int errorPage = 1;
+    private int errorPageSize = 20;
+    private string errorSortBy = "RowNumber";
+    private bool errorSortDescending;
+    private int ErrorTotalPages => errorResult == null ? 1
+        : (int)Math.Ceiling((double)errorResult.TotalCount / errorPageSize);
+
+    // Row filters
+    private string rowFilterRowId = "";
+    private string rowFilterState = "";
+    private string rowFilterStepName = "";
+    private int rowPage = 1;
+    private int rowPageSize = 50;
+    private int RowTotalPages => rowResult == null ? 1
+        : (int)Math.Ceiling((double)rowResult.TotalCount / rowPageSize);
+
+    private System.Threading.Timer? errorDebounceTimer;
+    private System.Threading.Timer? rowDebounceTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Http.BaseAddress ??= new Uri(Navigation.BaseUri);
+
+        try
+        {
+            await LoadAllData();
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            notFound = true;
+            return;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load operation {OperationId}", id);
+            pageError = "An unexpected error occurred. Please try again.";
+            return;
+        }
+
+        if (operation == null)
+        {
+            notFound = true;
+            return;
+        }
+
+        if (operation is { Status: BulkOperationStatus.Running or BulkOperationStatus.Pending or BulkOperationStatus.Validating })
+        {
+            pollingTimer = new System.Threading.Timer(async _ => await PollStatusAsync(), null, 2000, 2000);
+        }
+    }
+
+    private async Task LoadAllData()
+    {
+        var opTask = Http.GetFromJsonAsync<BulkOperation>($"api/bulks/{id}", _cts.Token);
+        var errTask = LoadErrors();
+        var rowTask = LoadRows();
+
+        await Task.WhenAll(opTask, errTask, rowTask);
+        operation = opTask.Result;
+    }
+
+    private async Task LoadErrors()
+    {
+        var qs = $"api/bulks/{id}/errors?page={errorPage}&pageSize={errorPageSize}&sortBy={errorSortBy}&sortDescending={errorSortDescending}";
+        if (!string.IsNullOrEmpty(errorFilterRowId)) qs += $"&rowId={Uri.EscapeDataString(errorFilterRowId)}";
+        if (!string.IsNullOrEmpty(errorFilterType)) qs += $"&errorType={Uri.EscapeDataString(errorFilterType)}";
+        errorResult = await Http.GetFromJsonAsync<PagedErrorResult>(qs, _cts.Token);
+    }
+
+    private async Task LoadRows()
+    {
+        var qs = $"api/bulks/{id}/rows?page={rowPage}&pageSize={rowPageSize}";
+        if (!string.IsNullOrEmpty(rowFilterRowId)) qs += $"&rowId={Uri.EscapeDataString(rowFilterRowId)}";
+        if (!string.IsNullOrEmpty(rowFilterState)) qs += $"&state={rowFilterState}";
+        if (!string.IsNullOrEmpty(rowFilterStepName)) qs += $"&stepName={Uri.EscapeDataString(rowFilterStepName)}";
+        rowResult = await Http.GetFromJsonAsync<PagedRowResult>(qs, _cts.Token);
+    }
+
+    private async Task PollStatusAsync()
+    {
+        try
+        {
+            await LoadAllData();
+            await InvokeAsync(StateHasChanged);
+
+            if (operation is not { Status: BulkOperationStatus.Running or BulkOperationStatus.Pending or BulkOperationStatus.Validating })
+            {
+                pollingTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to poll status for operation {OperationId}", id);
+        }
+    }
+
+    // Error filter/sort/page handlers
+    private void OnErrorFilterChanged()
+    {
+        errorDebounceTimer?.Dispose();
+        errorDebounceTimer = new System.Threading.Timer(async _ =>
+        {
+            errorPage = 1;
+            await LoadErrors();
+            await InvokeAsync(StateHasChanged);
+        }, null, 300, Timeout.Infinite);
+    }
+
+    private void ToggleErrorSort(string column)
+    {
+        if (errorSortBy == column) { errorSortDescending = !errorSortDescending; }
+        else { errorSortBy = column; errorSortDescending = false; }
+        errorPage = 1;
+        _ = LoadErrors().ContinueWith(_ => InvokeAsync(StateHasChanged));
+    }
+
+    private string ErrorSortIndicator(string column)
+    {
+        if (errorSortBy != column) return "";
+        return errorSortDescending ? "\u25BC" : "\u25B2";
+    }
+
+    private async Task GoToErrorPage(int page)
+    {
+        if (page < 1 || page > ErrorTotalPages) return;
+        errorPage = page;
+        await LoadErrors();
+    }
+
+    // Row filter/page handlers
+    private void OnRowFilterChanged()
+    {
+        rowDebounceTimer?.Dispose();
+        rowDebounceTimer = new System.Threading.Timer(async _ =>
+        {
+            rowPage = 1;
+            await LoadRows();
+            await InvokeAsync(StateHasChanged);
+        }, null, 300, Timeout.Infinite);
+    }
+
+    private async Task GoToRowPage(int page)
+    {
+        if (page < 1 || page > RowTotalPages) return;
+        rowPage = page;
+        await LoadRows();
+    }
+
+    private void ToggleRowExpansion(int rowNumber)
+    {
+        if (!expandedRows.Remove(rowNumber))
+        {
+            expandedRows.Add(rowNumber);
+        }
+    }
+
+    private string GetStatusBadgeClass(BulkOperationStatus status) => status switch
+    {
+        BulkOperationStatus.Pending => "bg-warning text-dark",
+        BulkOperationStatus.Running => "bg-info text-white",
+        BulkOperationStatus.Completed => "bg-success text-white",
+        BulkOperationStatus.CompletedWithErrors => "bg-warning text-dark",
+        BulkOperationStatus.Failed => "bg-danger text-white",
+        BulkOperationStatus.Cancelled => "bg-secondary text-white",
+        _ => "bg-light text-dark"
+    };
+
+    private static string GetRowStateBadgeClass(string state) => state switch
+    {
+        "Running" => "bg-primary",
+        "WaitingForCompletion" => "bg-warning text-dark",
+        "Completed" => "bg-success",
+        "Failed" => "bg-danger",
+        "TimedOut" => "bg-danger",
+        "Pending" => "bg-secondary",
+        _ => "bg-light text-dark"
+    };
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024.0):F1} MB";
+    }
+
+    private string FormatDuration(TimeSpan duration)
+    {
+        if (duration.TotalSeconds < 60) return $"{duration.TotalSeconds:0}s";
+        if (duration.TotalMinutes < 60) return $"{duration.TotalMinutes:0.0}m";
+        return $"{duration.TotalHours:0.0}h";
+    }
+
+    public void Dispose()
+    {
+        _cts.Cancel();
+        _cts.Dispose();
+        pollingTimer?.Dispose();
+        errorDebounceTimer?.Dispose();
+        rowDebounceTimer?.Dispose();
+    }
+}

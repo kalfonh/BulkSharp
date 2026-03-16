@@ -1,0 +1,13 @@
+global using BulkSharp.Core.Abstractions.Storage;
+global using BulkSharp.Core.Domain.Files;
+global using BulkSharp.Core.Domain.Operations;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.EntityFrameworkCore.Infrastructure;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.DependencyInjection.Extensions;
+global using System;
+global using System.Collections.Generic;
+global using System.Linq;
+global using System.Threading;
+global using System.Threading.Tasks;
+global using BulkSharp.Data.EntityFramework;

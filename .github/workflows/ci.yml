@@ -1,0 +1,146 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore (excluding Aspire AppHost)
+        run: |
+          dotnet restore src/BulkSharp.Core/BulkSharp.Core.csproj
+          dotnet restore src/BulkSharp.Processing/BulkSharp.Processing.csproj
+          dotnet restore src/BulkSharp/BulkSharp.csproj
+          dotnet restore src/BulkSharp.Dashboard/BulkSharp.Dashboard.csproj
+          dotnet restore src/BulkSharp.Data.EntityFramework/BulkSharp.Data.EntityFramework.csproj
+          dotnet restore src/BulkSharp.Files.S3/BulkSharp.Files.S3.csproj
+          dotnet restore src/BulkSharp.Gateway/BulkSharp.Gateway.csproj
+          dotnet restore tests/BulkSharp.UnitTests/BulkSharp.UnitTests.csproj
+          dotnet restore tests/BulkSharp.IntegrationTests/BulkSharp.IntegrationTests.csproj
+          dotnet restore tests/BulkSharp.ArchitectureTests/BulkSharp.ArchitectureTests.csproj
+          dotnet restore tests/BulkSharp.Dashboard.Tests/BulkSharp.Dashboard.Tests.csproj
+          dotnet restore tests/BulkSharp.Gateway.Tests/BulkSharp.Gateway.Tests.csproj
+          dotnet restore samples/BulkSharp.Sample.UserImport/BulkSharp.Sample.UserImport.csproj
+          dotnet restore samples/BulkSharp.Sample.Dashboard/BulkSharp.Sample.Dashboard.csproj
+          dotnet restore samples/BulkSharp.Sample.Production/BulkSharp.Sample.Production.csproj
+          dotnet restore samples/BulkSharp.Sample.Gateway/BulkSharp.Sample.Gateway.csproj
+          dotnet restore tests/BulkSharp.Gateway.IntegrationTests/BulkSharp.Gateway.IntegrationTests.csproj
+
+      - name: Build
+        run: |
+          dotnet build src/BulkSharp/BulkSharp.csproj -c Release --no-restore
+          dotnet build src/BulkSharp.Dashboard/BulkSharp.Dashboard.csproj -c Release --no-restore
+          dotnet build src/BulkSharp.Data.EntityFramework/BulkSharp.Data.EntityFramework.csproj -c Release --no-restore
+          dotnet build src/BulkSharp.Files.S3/BulkSharp.Files.S3.csproj -c Release --no-restore
+          dotnet build src/BulkSharp.Gateway/BulkSharp.Gateway.csproj -c Release --no-restore
+          dotnet build tests/BulkSharp.UnitTests/BulkSharp.UnitTests.csproj -c Release --no-restore
+          dotnet build tests/BulkSharp.IntegrationTests/BulkSharp.IntegrationTests.csproj -c Release --no-restore
+          dotnet build tests/BulkSharp.ArchitectureTests/BulkSharp.ArchitectureTests.csproj -c Release --no-restore
+          dotnet build tests/BulkSharp.Dashboard.Tests/BulkSharp.Dashboard.Tests.csproj -c Release --no-restore
+          dotnet build tests/BulkSharp.Gateway.Tests/BulkSharp.Gateway.Tests.csproj -c Release --no-restore
+          dotnet build samples/BulkSharp.Sample.UserImport/BulkSharp.Sample.UserImport.csproj -c Release --no-restore
+          dotnet build samples/BulkSharp.Sample.Dashboard/BulkSharp.Sample.Dashboard.csproj -c Release --no-restore
+          dotnet build samples/BulkSharp.Sample.Production/BulkSharp.Sample.Production.csproj -c Release --no-restore
+          dotnet build samples/BulkSharp.Sample.Gateway/BulkSharp.Sample.Gateway.csproj -c Release --no-restore
+          dotnet build tests/BulkSharp.Gateway.IntegrationTests/BulkSharp.Gateway.IntegrationTests.csproj -c Release --no-restore
+
+      - name: Test
+        run: |
+          dotnet test tests/BulkSharp.UnitTests -c Release --no-build
+          dotnet test tests/BulkSharp.IntegrationTests -c Release --no-build
+          dotnet test tests/BulkSharp.ArchitectureTests -c Release --no-build
+          dotnet test tests/BulkSharp.Dashboard.Tests -c Release --no-build
+          dotnet test tests/BulkSharp.Gateway.Tests -c Release --no-build
+          dotnet test tests/BulkSharp.Gateway.IntegrationTests -c Release --no-build
+
+  pack-and-validate:
+    runs-on: ubuntu-latest
+    needs: build-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore library projects
+        run: |
+          dotnet restore src/BulkSharp.Core/BulkSharp.Core.csproj
+          dotnet restore src/BulkSharp.Processing/BulkSharp.Processing.csproj
+          dotnet restore src/BulkSharp/BulkSharp.csproj
+          dotnet restore src/BulkSharp.Dashboard/BulkSharp.Dashboard.csproj
+          dotnet restore src/BulkSharp.Data.EntityFramework/BulkSharp.Data.EntityFramework.csproj
+          dotnet restore src/BulkSharp.Files.S3/BulkSharp.Files.S3.csproj
+          dotnet restore src/BulkSharp.Gateway/BulkSharp.Gateway.csproj
+
+      - name: Build library projects
+        run: |
+          dotnet build src/BulkSharp/BulkSharp.csproj -c Release --no-restore
+          dotnet build src/BulkSharp.Dashboard/BulkSharp.Dashboard.csproj -c Release --no-restore
+          dotnet build src/BulkSharp.Data.EntityFramework/BulkSharp.Data.EntityFramework.csproj -c Release --no-restore
+          dotnet build src/BulkSharp.Files.S3/BulkSharp.Files.S3.csproj -c Release --no-restore
+          dotnet build src/BulkSharp.Gateway/BulkSharp.Gateway.csproj -c Release --no-restore
+
+      - name: Extract version from tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: echo "PACK_VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+
+      - name: Pack library projects
+        run: |
+          for proj in src/BulkSharp/BulkSharp.csproj \
+                      src/BulkSharp.Core/BulkSharp.Core.csproj \
+                      src/BulkSharp.Processing/BulkSharp.Processing.csproj \
+                      src/BulkSharp.Dashboard/BulkSharp.Dashboard.csproj \
+                      src/BulkSharp.Data.EntityFramework/BulkSharp.Data.EntityFramework.csproj \
+                      src/BulkSharp.Files.S3/BulkSharp.Files.S3.csproj \
+                      src/BulkSharp.Gateway/BulkSharp.Gateway.csproj; do
+            PACK_CMD="dotnet pack $proj -c Release --no-build -o ./artifacts/packages"
+            if [ -n "$PACK_VERSION" ]; then PACK_CMD="$PACK_CMD /p:Version=$PACK_VERSION"; fi
+            $PACK_CMD
+          done
+
+      - name: Register CI-local feed
+        run: dotnet nuget add source ${{ github.workspace }}/artifacts/packages --name ci-local --configfile nuget.config
+
+      - name: Build samples with package references
+        run: |
+          dotnet build samples/BulkSharp.Sample.UserImport -c Release -p:UsePackageReferences=true
+          dotnet build samples/BulkSharp.Sample.Dashboard -c Release -p:UsePackageReferences=true
+          dotnet build samples/BulkSharp.Sample.Production -c Release -p:UsePackageReferences=true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: ./artifacts/packages/
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: pack-and-validate
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: packages
+          path: ./artifacts/packages/
+
+      - name: Push to GitHub Packages
+        run: dotnet nuget push "./artifacts/packages/*.nupkg" --source "https://nuget.pkg.github.com/kalfonh/index.json" --api-key ${{ secrets.GITHUB_TOKEN }} --skip-duplicate

@@ -1,0 +1,736 @@
+@page "/create"
+@using Microsoft.AspNetCore.Components
+@using System.Text.Json
+@using System.Net.Http.Json
+@implements IDisposable
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@inject ILogger<CreateBulk> Logger
+
+<PageTitle>Create Bulk Operation</PageTitle>
+
+<div class="page-header d-flex align-items-center gap-2 mb-4">
+    <a href="/" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i>
+    </a>
+    <div>
+        <h1>Create Bulk Operation</h1>
+        <p>Select an operation type and upload your data file</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-white py-3">
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-file-earmark-arrow-up text-primary me-2"></i>Operation Configuration</h6>
+            </div>
+            <div class="card-body">
+                <form @onsubmit="HandleSubmit" @onsubmit:preventDefault="true">
+                    <!-- Operation Selection -->
+                    <div class="mb-3">
+                        <label for="operationType" class="form-label">Operation Type <span class="text-danger">*</span></label>
+                        <select class="form-select" id="operationType" value="@selectedOperation" @onchange="OnOperationChanged" required>
+                            <option value="">-- Select Operation --</option>
+                            @if (availableOperations != null)
+                            {
+                                @foreach (var op in availableOperations)
+                                {
+                                    <option value="@op.Name">@op.Name</option>
+                                }
+                            }
+                        </select>
+                        @if (!string.IsNullOrEmpty(selectedOperation))
+                        {
+                            var selected = availableOperations?.FirstOrDefault(o => o.Name == selectedOperation);
+                            if (selected != null)
+                            {
+                                <div class="alert alert-light border mt-2 py-2 px-3" style="font-size: 0.8rem;">
+                                    @if (!string.IsNullOrEmpty(selected.Description))
+                                    {
+                                        <div class="mb-1">@selected.Description</div>
+                                    }
+                                    <span class="text-muted">Metadata: <code>@selected.MetadataType</code> &middot; Row: <code>@selected.RowType</code></span>
+                                </div>
+
+                                <!-- Metadata Fields Schema -->
+                                @if (selected.MetadataFields?.Any() == true)
+                                {
+                                    <div class="mt-2">
+                                        <h6 class="fw-semibold" style="font-size: 0.8rem;">Metadata Fields</h6>
+                                        <table class="table table-sm table-bordered mb-0" style="font-size: 0.8rem;">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Field</th>
+                                                    <th>Type</th>
+                                                    <th>Required</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var field in selected.MetadataFields)
+                                                {
+                                                    <tr>
+                                                        <td><code>@field.Name</code></td>
+                                                        <td>@field.Type</td>
+                                                        <td>
+                                                            @if (field.Required)
+                                                            {
+                                                                <span class="badge bg-danger">required</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="badge bg-secondary">optional</span>
+                                                            }
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+
+                                <!-- File Columns Schema -->
+                                @if (selected.FileColumns?.Any() == true)
+                                {
+                                    <div class="mt-2">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h6 class="fw-semibold mb-0" style="font-size: 0.8rem;">Expected File Columns</h6>
+                                            <a href="/api/operations/@selectedOperation/template"
+                                               class="btn btn-sm btn-outline-secondary"
+                                               target="_blank" download>
+                                                <i class="bi bi-download me-1"></i>Template
+                                            </a>
+                                        </div>
+                                        <table class="table table-sm table-bordered mb-0 mt-1" style="font-size: 0.8rem;">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Column</th>
+                                                    <th>Type</th>
+                                                    <th>Required</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var col in selected.FileColumns)
+                                                {
+                                                    <tr>
+                                                        <td><code>@col.Name</code></td>
+                                                        <td>@col.Type</td>
+                                                        <td>
+                                                            @if (col.Required)
+                                                            {
+                                                                <span class="badge bg-danger">required</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="badge bg-secondary">optional</span>
+                                                            }
+                                                        </td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                }
+                            }
+                        }
+                    </div>
+
+                    <!-- Created By -->
+                    <div class="mb-3">
+                        <label for="createdBy" class="form-label">Your Name</label>
+                        <input type="text" class="form-control" id="createdBy" @bind="createdBy" placeholder="Optional">
+                    </div>
+
+                    <!-- File Upload -->
+                    <div class="mb-3">
+                        <label class="form-label">Data File <span class="text-danger">*</span></label>
+                        <div class="border rounded p-3 text-center @(selectedFile != null ? "border-success" : "")">
+                            @if (selectedFile == null)
+                            {
+                                <i class="bi bi-cloud-upload d-block text-muted" style="font-size: 2rem;"></i>
+                                <p class="small mb-1">Click to select your file</p>
+                                <small class="text-muted">CSV or JSON, max 10MB</small>
+                            }
+                            else
+                            {
+                                <i class="bi bi-file-earmark-check d-block text-success" style="font-size: 2rem;"></i>
+                                <p class="small mb-1 text-success fw-semibold">@selectedFile.Name</p>
+                                <small class="text-muted">@FormatFileSize(selectedFile.Size)</small>
+                            }
+                            <InputFile OnChange="OnFileSelected" class="form-control mt-2" accept=".csv,.json" />
+                        </div>
+                        @if (fileErrors.Count > 0)
+                        {
+                            <div class="alert alert-danger mt-2 py-2 px-3 mb-0" style="font-size: 0.8rem;">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i><strong>File errors:</strong>
+                                <ul class="mb-0 ps-3 mt-1">
+                                    @foreach (var err in fileErrors)
+                                    {
+                                        <li>@err</li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Metadata -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label mb-0">Metadata</label>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ToggleMetadataEditor">
+                                <i class="bi bi-code-slash me-1"></i>@(showJsonEditor ? "Form" : "JSON")
+                            </button>
+                        </div>
+                        @if (showJsonEditor)
+                        {
+                            <textarea class="form-control font-monospace" rows="4" @bind="metadata" @bind:event="oninput" @bind:after="OnMetadataChanged" placeholder='{"key": "value"}' style="font-size: 0.8rem;"></textarea>
+                        }
+                        else
+                        {
+                            <div class="border rounded p-3">
+                                @foreach (var field in metadataFields)
+                                {
+                                    <div class="row mb-2">
+                                        <div class="col-5">
+                                            <input type="text" class="form-control form-control-sm" @bind="field.Key" placeholder="Key" />
+                                        </div>
+                                        <div class="col-7">
+                                            <input type="text" class="form-control form-control-sm" @bind="field.Value" placeholder="Value" />
+                                        </div>
+                                    </div>
+                                }
+                                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddMetadataField">
+                                    <i class="bi bi-plus me-1"></i>Add Field
+                                </button>
+                            </div>
+                        }
+                        @if (metadataErrors.Count > 0)
+                        {
+                            <div class="alert alert-danger mt-2 py-2 px-3 mb-0" style="font-size: 0.8rem;">
+                                <i class="bi bi-exclamation-triangle-fill me-1"></i><strong>Metadata errors:</strong>
+                                <ul class="mb-0 ps-3 mt-1">
+                                    @foreach (var err in metadataErrors)
+                                    {
+                                        <li>@err</li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Validation Status -->
+                    @if (isValidating)
+                    {
+                        <div class="alert alert-info py-2 px-3 mb-3" style="font-size: 0.85rem;">
+                            <span class="spinner-border spinner-border-sm me-1"></span>Validating...
+                        </div>
+                    }
+                    else if (isValid == true)
+                    {
+                        <div class="alert alert-success py-2 px-3 mb-3" style="font-size: 0.85rem;">
+                            <i class="bi bi-check-circle-fill me-1"></i><span class="badge bg-success">Valid</span> Ready to submit.
+                        </div>
+                    }
+
+                    <!-- Submit and Validate Buttons -->
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary" disabled="@(isSubmitting || isValid != true)">
+                            @if (isSubmitting)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                                <span>Creating...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-rocket-takeoff me-1"></i>
+                                <span>Create & Start</span>
+                            }
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" @onclick="ValidateAsync"
+                                disabled="@(isValidating || string.IsNullOrEmpty(selectedOperation) || selectedFile == null)">
+                            @if (isValidating)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                                <span>Validating...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-check2-circle me-1"></i>
+                                <span>Validate</span>
+                            }
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Status Card -->
+        @if (operationId != null)
+        {
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h6 class="fw-semibold">Processing Status</h6>
+                    <div class="progress mb-2" style="height: 8px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated"
+                             style="width: @progressPercent%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between small text-muted">
+                        <span>@operationStatus</span>
+                        <span>@processedRows / @totalRows rows</span>
+                    </div>
+                    @if (errorCount > 0)
+                    {
+                        <div class="alert alert-warning mt-2 py-1 px-2 small mb-0">
+                            <i class="bi bi-exclamation-triangle me-1"></i>@errorCount errors
+                        </div>
+                    }
+                    <a href="/bulk/@operationId" class="btn btn-sm btn-outline-primary mt-2">
+                        <i class="bi bi-eye me-1"></i>View Details
+                    </a>
+                </div>
+            </div>
+        }
+
+        <!-- Alerts -->
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger d-flex align-items-center mt-3 py-2" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <div>@errorMessage</div>
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <div class="alert alert-success d-flex align-items-center mt-3 py-2" role="alert">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                <div>@successMessage</div>
+            </div>
+        }
+    </div>
+
+    <!-- Help Sidebar -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-white py-3">
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-info-circle text-info me-2"></i>How It Works</h6>
+            </div>
+            <div class="card-body" style="font-size: 0.8rem;">
+                <ol class="ps-3 mb-0">
+                    <li class="mb-2"><strong>Select an operation</strong> - Choose from the registered bulk operations in your application.</li>
+                    <li class="mb-2"><strong>Upload a file</strong> - CSV or JSON file with your data rows.</li>
+                    <li class="mb-2"><strong>Add metadata</strong> - Optional context passed to every row during processing (e.g. import source, target tenant).</li>
+                    <li class="mb-2"><strong>Submit</strong> - The file is stored, rows are parsed, validated, and processed one by one.</li>
+                    <li><strong>Monitor</strong> - Track progress in real-time from the dashboard or operations list.</li>
+                </ol>
+            </div>
+        </div>
+
+        @if (availableOperations?.Any() == true)
+        {
+            <div class="card mt-3">
+                <div class="card-header bg-white py-3">
+                    <h6 class="mb-0 fw-semibold">Available Operations</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        @foreach (var op in availableOperations)
+                        {
+                            <div class="list-group-item px-3 py-2">
+                                <div class="fw-semibold" style="font-size: 0.85rem;">@op.Name</div>
+                                @if (!string.IsNullOrEmpty(op.Description))
+                                {
+                                    <small class="text-muted">@op.Description</small>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private class FieldSchema
+    {
+        public string Name { get; set; } = "";
+        public string Type { get; set; } = "";
+        public bool Required { get; set; }
+    }
+
+    private class DiscoveredOperation
+    {
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public string? MetadataType { get; set; }
+        public string? RowType { get; set; }
+        public List<FieldSchema>? MetadataFields { get; set; }
+        public List<FieldSchema>? FileColumns { get; set; }
+    }
+
+    private class MetadataField
+    {
+        public string Key { get; set; } = "";
+        public string Value { get; set; } = "";
+    }
+
+    private List<DiscoveredOperation>? availableOperations;
+    private string selectedOperation = "";
+    private string createdBy = "";
+    private string metadata = "{}";
+    private IBrowserFile? selectedFile;
+    private bool isSubmitting;
+    private string errorMessage = "";
+    private string successMessage = "";
+    private bool showJsonEditor = true;
+    private List<MetadataField> metadataFields = new();
+
+    // Validation state
+    private bool isValidating;
+    private bool? isValid;
+    private List<string> metadataErrors = [];
+    private List<string> fileErrors = [];
+    private CancellationTokenSource? debounceCts;
+
+    private Guid? operationId;
+    private string operationStatus = "";
+    private int processedRows;
+    private int totalRows;
+    private int errorCount;
+    private int progressPercent;
+    private System.Threading.Timer? statusTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Http.BaseAddress = new Uri(Navigation.BaseUri);
+        await LoadAvailableOperations();
+        metadataFields.Add(new MetadataField());
+    }
+
+    private async Task LoadAvailableOperations()
+    {
+        try
+        {
+            availableOperations = await Http.GetFromJsonAsync<List<DiscoveredOperation>>("/api/operations");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load available operations");
+            errorMessage = "An unexpected error occurred. Please try again.";
+        }
+    }
+
+    private void OnOperationChanged(ChangeEventArgs e)
+    {
+        selectedOperation = e.Value?.ToString() ?? "";
+        ResetValidationState();
+
+        // Auto-generate metadata template when an operation is selected
+        var selected = availableOperations?.FirstOrDefault(o => o.Name == selectedOperation);
+        if (selected?.MetadataFields?.Any() == true)
+        {
+            var template = new Dictionary<string, object?>();
+            foreach (var field in selected.MetadataFields)
+            {
+                template[field.Name] = GetPlaceholderValue(field.Type);
+            }
+            metadata = JsonSerializer.Serialize(template, new JsonSerializerOptions { WriteIndented = true });
+
+            // Also sync the form fields
+            metadataFields.Clear();
+            foreach (var field in selected.MetadataFields)
+            {
+                metadataFields.Add(new MetadataField
+                {
+                    Key = field.Name,
+                    Value = GetPlaceholderValue(field.Type)?.ToString() ?? ""
+                });
+            }
+        }
+        else
+        {
+            metadata = "{}";
+            metadataFields.Clear();
+            metadataFields.Add(new MetadataField());
+        }
+
+        ScheduleDebouncedValidation();
+    }
+
+    private static object? GetPlaceholderValue(string type) => type switch
+    {
+        "string" => "",
+        "int" or "long" => 0,
+        "decimal" or "double" or "float" => 0.0,
+        "bool" => false,
+        "datetime" or "datetimeoffset" => DateTime.UtcNow.ToString("o"),
+        "guid" => Guid.Empty.ToString(),
+        _ when type.EndsWith("?") => null,
+        _ => ""
+    };
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+        errorMessage = "";
+        successMessage = "";
+        ResetValidationState();
+        ScheduleDebouncedValidation();
+    }
+
+    private void OnMetadataChanged()
+    {
+        ResetValidationState();
+        ScheduleDebouncedValidation();
+    }
+
+    private void ResetValidationState()
+    {
+        isValid = null;
+        metadataErrors.Clear();
+        fileErrors.Clear();
+    }
+
+    private void ScheduleDebouncedValidation()
+    {
+        debounceCts?.Cancel();
+        debounceCts?.Dispose();
+        debounceCts = new CancellationTokenSource();
+        var token = debounceCts.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(500, token);
+                await InvokeAsync(async () =>
+                {
+                    if (!token.IsCancellationRequested
+                        && !string.IsNullOrEmpty(selectedOperation)
+                        && selectedFile != null)
+                    {
+                        await ValidateAsync();
+                    }
+                });
+            }
+            catch (TaskCanceledException)
+            {
+                // Debounce cancelled — expected
+            }
+        });
+    }
+
+    private async Task ValidateAsync()
+    {
+        if (string.IsNullOrEmpty(selectedOperation) || selectedFile == null)
+            return;
+
+        isValidating = true;
+        isValid = null;
+        metadataErrors.Clear();
+        fileErrors.Clear();
+        StateHasChanged();
+
+        try
+        {
+            string finalMetadata = GetFinalMetadata();
+
+            using var content = new MultipartFormDataContent();
+            var fileContent = new StreamContent(selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024));
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                selectedFile.ContentType ?? "application/octet-stream");
+            content.Add(fileContent, "file", selectedFile.Name);
+            content.Add(new StringContent(selectedOperation), "operationName");
+            content.Add(new StringContent(finalMetadata), "metadata");
+
+            var response = await Http.PostAsync("/api/bulks/validate", content);
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+            if (result.TryGetProperty("valid", out var validProp) && validProp.GetBoolean())
+            {
+                isValid = true;
+            }
+            else
+            {
+                isValid = false;
+                if (result.TryGetProperty("metadataErrors", out var me))
+                {
+                    foreach (var item in me.EnumerateArray())
+                    {
+                        var val = item.GetString();
+                        if (val != null) metadataErrors.Add(val);
+                    }
+                }
+                if (result.TryGetProperty("fileErrors", out var fe))
+                {
+                    foreach (var item in fe.EnumerateArray())
+                    {
+                        var val = item.GetString();
+                        if (val != null) fileErrors.Add(val);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            isValid = false;
+            metadataErrors.Add($"Validation request failed: {ex.Message}");
+        }
+        finally
+        {
+            isValidating = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetFinalMetadata()
+    {
+        if (showJsonEditor)
+            return metadata;
+
+        var metaDict = new Dictionary<string, string>();
+        foreach (var field in metadataFields.Where(f => !string.IsNullOrEmpty(f.Key)))
+            metaDict[field.Key] = field.Value;
+        return JsonSerializer.Serialize(metaDict);
+    }
+
+    private void ToggleMetadataEditor()
+    {
+        showJsonEditor = !showJsonEditor;
+        if (showJsonEditor)
+        {
+            var metaDict = new Dictionary<string, string>();
+            foreach (var field in metadataFields.Where(f => !string.IsNullOrEmpty(f.Key)))
+                metaDict[field.Key] = field.Value;
+            metadata = JsonSerializer.Serialize(metaDict, new JsonSerializerOptions { WriteIndented = true });
+        }
+        else
+        {
+            try
+            {
+                var metaDict = JsonSerializer.Deserialize<Dictionary<string, string>>(metadata) ?? new();
+                metadataFields.Clear();
+                foreach (var kvp in metaDict)
+                    metadataFields.Add(new MetadataField { Key = kvp.Key, Value = kvp.Value });
+                if (!metadataFields.Any()) metadataFields.Add(new MetadataField());
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to parse metadata JSON");
+                metadataFields.Clear();
+                metadataFields.Add(new MetadataField());
+            }
+        }
+    }
+
+    private void AddMetadataField() => metadataFields.Add(new MetadataField());
+
+    private async Task HandleSubmit()
+    {
+        if (selectedFile == null) { errorMessage = "Please select a file"; return; }
+        if (string.IsNullOrWhiteSpace(selectedOperation)) { errorMessage = "Please select an operation type"; return; }
+
+        isSubmitting = true;
+        errorMessage = "";
+        successMessage = "";
+
+        try
+        {
+            string finalMetadata = GetFinalMetadata();
+
+            using var content = new MultipartFormDataContent();
+            var fileContent = new StreamContent(selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024));
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                selectedFile.ContentType ?? "application/octet-stream");
+            content.Add(fileContent, "file", selectedFile.Name);
+            content.Add(new StringContent(selectedOperation), "operationName");
+            content.Add(new StringContent(string.IsNullOrEmpty(createdBy) ? "Dashboard User" : createdBy), "createdBy");
+            content.Add(new StringContent(finalMetadata), "metadata");
+
+            var response = await Http.PostAsync("/api/bulks", content);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+                if (result.TryGetProperty("operationId", out var idElement))
+                {
+                    operationId = Guid.Parse(idElement.GetString() ?? Guid.NewGuid().ToString());
+                    successMessage = "Operation created. Processing started.";
+                    StartStatusMonitoring();
+                }
+                selectedOperation = "";
+                createdBy = "";
+                metadata = "{}";
+                selectedFile = null;
+                metadataFields.Clear();
+                metadataFields.Add(new MetadataField());
+                ResetValidationState();
+            }
+            else
+            {
+                errorMessage = $"Error: {await response.Content.ReadAsStringAsync()}";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to create bulk operation");
+            errorMessage = "An unexpected error occurred. Please try again.";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void StartStatusMonitoring()
+    {
+        statusTimer?.Dispose();
+        statusTimer = new System.Threading.Timer(async _ => await UpdateOperationStatus(),
+            null, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+    }
+
+    private async Task UpdateOperationStatus()
+    {
+        if (operationId == null) return;
+        try
+        {
+            var response = await Http.GetFromJsonAsync<JsonElement>($"/api/bulks/{operationId}/status");
+            if (response.TryGetProperty("status", out var s) || response.TryGetProperty("Status", out s))
+            {
+                operationStatus = s.ValueKind == JsonValueKind.Number
+                    ? ((BulkOperationStatus)s.GetInt32()).ToString()
+                    : s.GetString() ?? "Unknown";
+            }
+            if (response.TryGetProperty("processedRows", out var p)) processedRows = p.GetInt32();
+            if (response.TryGetProperty("totalRows", out var t)) totalRows = t.GetInt32();
+            if (response.TryGetProperty("errorCount", out var e)) errorCount = e.GetInt32();
+            if (response.TryGetProperty("progress", out var pr)) progressPercent = (int)pr.GetDouble();
+            await InvokeAsync(StateHasChanged);
+            if (operationStatus is "Completed" or "CompletedWithErrors" or "Failed" or "Cancelled")
+            {
+                statusTimer?.Dispose();
+                statusTimer = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to update operation status for {OperationId}", operationId);
+        }
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = ["B", "KB", "MB", "GB"];
+        double len = bytes;
+        int order = 0;
+        while (len >= 1024 && order < sizes.Length - 1) { order++; len /= 1024; }
+        return $"{len:0.##} {sizes[order]}";
+    }
+
+    public void Dispose()
+    {
+        statusTimer?.Dispose();
+        debounceCts?.Cancel();
+        debounceCts?.Dispose();
+    }
+}

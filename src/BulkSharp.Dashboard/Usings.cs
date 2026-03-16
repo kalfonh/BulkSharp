@@ -1,0 +1,9 @@
+global using BulkSharp.Core.Abstractions.Operations;
+global using BulkSharp.Core.Abstractions.Storage;
+global using BulkSharp.Core.Domain.Operations;
+global using BulkSharp.Processing.Services;
+global using Microsoft.AspNetCore.Builder;
+global using Microsoft.AspNetCore.Http;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Hosting;
+global using System.Text.Json;

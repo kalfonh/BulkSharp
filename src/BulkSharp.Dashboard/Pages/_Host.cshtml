@@ -1,0 +1,9 @@
+@page
+@namespace BulkSharp.Dashboard.Pages
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+@{
+    Layout = "_Layout";
+}
+@attribute [Microsoft.AspNetCore.Mvc.IgnoreAntiforgeryToken]
+
+<component type="typeof(App)" render-mode="Server" />

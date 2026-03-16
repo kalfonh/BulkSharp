@@ -1,0 +1,7 @@
+[
+  {"Sku": "SKU-LAPTOP-15", "Warehouse": "WH-EAST", "QuantityAdjustment": 50, "ReasonCode": "restock", "Notes": "Q1 replenishment"},
+  {"Sku": "SKU-MOUSE-01", "Warehouse": "WH-WEST", "QuantityAdjustment": -5, "ReasonCode": "damaged", "Notes": "Water damage in transit"},
+  {"Sku": "SKU-KEYBOARD-02", "Warehouse": "WH-EAST", "QuantityAdjustment": 100, "ReasonCode": "restock", "Notes": "New shipment"},
+  {"Sku": "SKU-MONITOR-27", "Warehouse": "WH-CENTRAL", "QuantityAdjustment": -2, "ReasonCode": "return", "Notes": "Customer returns"},
+  {"Sku": "SKU-HEADSET-PRO", "Warehouse": "WH-WEST", "QuantityAdjustment": 25, "ReasonCode": "transfer", "Notes": "Transfer from EAST"}
+]

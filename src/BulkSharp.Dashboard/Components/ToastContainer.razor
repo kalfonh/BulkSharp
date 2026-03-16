@@ -1,0 +1,57 @@
+@using BulkSharp.Dashboard.Services
+@inject ToastService ToastService
+@implements IDisposable
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+    @foreach (var toast in messages)
+    {
+        <div class="toast show border-0 shadow-sm" role="alert">
+            <div class="toast-header @GetHeaderClass(toast.Level)">
+                <i class="bi @GetIcon(toast.Level) me-2"></i>
+                <strong class="me-auto">@toast.Title</strong>
+                <small>@toast.Timestamp.ToString("HH:mm:ss")</small>
+                <button type="button" class="btn-close btn-close-white ms-2" @onclick="() => ToastService.Dismiss(toast.Id)"></button>
+            </div>
+            <div class="toast-body">
+                @toast.Message
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<ToastMessage> messages = Array.Empty<ToastMessage>();
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnChange += OnToastChanged;
+        messages = ToastService.Messages;
+    }
+
+    private async void OnToastChanged()
+    {
+        messages = ToastService.Messages;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private static string GetHeaderClass(ToastLevel level) => level switch
+    {
+        ToastLevel.Success => "bg-success text-white",
+        ToastLevel.Warning => "bg-warning text-dark",
+        ToastLevel.Error => "bg-danger text-white",
+        _ => "bg-info text-white"
+    };
+
+    private static string GetIcon(ToastLevel level) => level switch
+    {
+        ToastLevel.Success => "bi-check-circle-fill",
+        ToastLevel.Warning => "bi-exclamation-triangle-fill",
+        ToastLevel.Error => "bi-x-circle-fill",
+        _ => "bi-info-circle-fill"
+    };
+
+    public void Dispose()
+    {
+        ToastService.OnChange -= OnToastChanged;
+    }
+}
