@@ -17,6 +17,12 @@ public sealed class BulkOperation
     public string MetadataJson { get; set; } = string.Empty;
     public string CreatedBy { get; set; } = string.Empty;
     public string Source { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Serialized notification preferences for this operation. Null means no notifications.
+    /// </summary>
+    public string? NotificationOptionsJson { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
