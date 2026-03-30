@@ -1,4 +1,5 @@
 using BulkSharp.Core.Domain.Export;
+using BulkSharp.Core.Domain.Notifications;
 using BulkSharp.Core.Domain.Queries;
 using BulkSharp.Core.Domain.Retry;
 using BulkSharp.Processing.Logging;
@@ -28,7 +29,7 @@ internal sealed class BulkOperationService(
         where TMetadata : class
     {
         var metadataJson = JsonSerializer.Serialize(metadata, BulkSharpJsonDefaults.Options);
-        return await CreateBulkOperationCoreAsync(operationName, fileStream, fileName, metadataJson, createdBy, cancellationToken)
+        return await CreateBulkOperationCoreAsync(operationName, fileStream, fileName, metadataJson, createdBy, null, cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -38,6 +39,7 @@ internal sealed class BulkOperationService(
         string fileName,
         string metadataJson,
         string createdBy,
+        NotificationOptions? notifications,
         CancellationToken cancellationToken)
     {
         logger.CreatingBulkOperation(operationName);
@@ -51,7 +53,10 @@ internal sealed class BulkOperationService(
             MetadataJson = metadataJson,
             CreatedBy = createdBy,
             Source = options.Value.ServiceName ?? string.Empty,
-            Status = BulkOperationStatus.Pending
+            Status = BulkOperationStatus.Pending,
+            NotificationOptionsJson = notifications?.Recipients.Count > 0
+                ? JsonSerializer.Serialize(notifications, BulkSharpJsonDefaults.Options)
+                : null
         };
 
         await operationRepository.CreateAsync(operation, cancellationToken).ConfigureAwait(false);
@@ -94,7 +99,34 @@ internal sealed class BulkOperationService(
         string createdBy,
         CancellationToken cancellationToken = default)
     {
-        return CreateBulkOperationCoreAsync(operationName, fileStream, fileName, metadataJson ?? "{}", createdBy, cancellationToken);
+        return CreateBulkOperationCoreAsync(operationName, fileStream, fileName, metadataJson ?? "{}", createdBy, null, cancellationToken);
+    }
+
+    public async Task<Guid> CreateBulkOperationAsync<TMetadata>(
+        string operationName,
+        Stream fileStream,
+        string fileName,
+        TMetadata metadata,
+        string createdBy,
+        NotificationOptions? notifications,
+        CancellationToken cancellationToken = default)
+        where TMetadata : class
+    {
+        var metadataJson = JsonSerializer.Serialize(metadata, BulkSharpJsonDefaults.Options);
+        return await CreateBulkOperationCoreAsync(operationName, fileStream, fileName, metadataJson, createdBy, notifications, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public Task<Guid> CreateBulkOperationAsync(
+        string operationName,
+        Stream fileStream,
+        string fileName,
+        string metadataJson,
+        string createdBy,
+        NotificationOptions? notifications,
+        CancellationToken cancellationToken = default)
+    {
+        return CreateBulkOperationCoreAsync(operationName, fileStream, fileName, metadataJson ?? "{}", createdBy, notifications, cancellationToken);
     }
 
     public Task<BulkOperation?> GetBulkOperationAsync(Guid operationId, CancellationToken cancellationToken = default) =>
