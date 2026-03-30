@@ -25,6 +25,7 @@ public class BulkSharpDbContext : DbContext
             entity.Property(e => e.CreatedBy).HasMaxLength(100).IsRequired();
             entity.Property(e => e.FileName).HasMaxLength(200).IsRequired();
             entity.Property(e => e.MetadataJson).HasColumnType("nvarchar(max)");
+            entity.Property(e => e.NotificationOptionsJson).HasColumnType("nvarchar(max)");
             entity.Property(e => e.ErrorMessage).HasMaxLength(2000);
             entity.Property(e => e.Source).HasMaxLength(200).IsRequired();
             entity.HasIndex(e => e.Status);
