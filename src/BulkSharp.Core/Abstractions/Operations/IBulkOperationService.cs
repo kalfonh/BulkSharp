@@ -1,4 +1,5 @@
 using BulkSharp.Core.Domain.Export;
+using BulkSharp.Core.Domain.Notifications;
 using BulkSharp.Core.Domain.Operations;
 using BulkSharp.Core.Domain.Queries;
 using BulkSharp.Core.Domain.Retry;
@@ -27,6 +28,31 @@ public interface IBulkOperationService : IBulkOperationQueryService
         string fileName,
         string metadataJson,
         string createdBy,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates a bulk operation with per-operation notification preferences.
+    /// </summary>
+    Task<Guid> CreateBulkOperationAsync<TMetadata>(
+        string operationName,
+        Stream fileStream,
+        string fileName,
+        TMetadata metadata,
+        string createdBy,
+        NotificationOptions? notifications,
+        CancellationToken cancellationToken = default)
+        where TMetadata : class;
+
+    /// <summary>
+    /// Creates a bulk operation using pre-serialized metadata JSON with notification preferences.
+    /// </summary>
+    Task<Guid> CreateBulkOperationAsync(
+        string operationName,
+        Stream fileStream,
+        string fileName,
+        string metadataJson,
+        string createdBy,
+        NotificationOptions? notifications,
         CancellationToken cancellationToken = default);
 
     Task CancelBulkOperationAsync(Guid operationId, CancellationToken cancellationToken = default);
