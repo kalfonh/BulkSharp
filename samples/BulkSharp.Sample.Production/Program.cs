@@ -37,7 +37,12 @@ builder.Services.AddBulkSharp(bulk => bulk
         sql.MaxRetryDelay = TimeSpan.FromSeconds(5);
     }))
     .UseScheduler(s => s.UseChannels(opts => opts.WorkerCount = 100))
+    .AddNotificationChannel<SmtpEmailNotificationChannel>()
 );
+
+// Configure email notifications (optional — reads from appsettings)
+builder.Services.Configure<BulkSharp.Sample.Production.Configuration.SmtpSettings>(
+    builder.Configuration.GetSection("Smtp"));
 
 builder.Services.AddBulkSharpDashboard();
 
