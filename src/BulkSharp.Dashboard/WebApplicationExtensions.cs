@@ -1,9 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
+using System.Text.Json;
 using BulkSharp.Core.Attributes;
 using BulkSharp.Core.Abstractions.Storage;
 using BulkSharp.Core.Configuration;
 using BulkSharp.Core.Domain.Export;
+using BulkSharp.Core.Domain.Notifications;
 using BulkSharp.Core.Domain.Operations;
 using BulkSharp.Core.Domain.Queries;
 using BulkSharp.Core.Domain.Retry;
@@ -452,6 +454,7 @@ public static class WebApplicationExtensions
             var operationName = form["operationName"].ToString();
             var createdBy = form["createdBy"].ToString();
             var metadataJson = form["metadata"].ToString();
+            var notificationsJson = form["notifications"].ToString();
 
             if (file == null || file.Length == 0)
                 return Results.BadRequest("File is required");
@@ -473,9 +476,22 @@ public static class WebApplicationExtensions
 
             try
             {
+                NotificationOptions? notifications = null;
+                if (!string.IsNullOrWhiteSpace(notificationsJson))
+                {
+                    try
+                    {
+                        notifications = JsonSerializer.Deserialize<NotificationOptions>(notificationsJson);
+                    }
+                    catch (JsonException)
+                    {
+                        return Results.BadRequest("Invalid notifications JSON");
+                    }
+                }
+
                 using var stream = file.OpenReadStream();
                 var operationId = await operationService.CreateBulkOperationAsync(
-                    operationName, stream, file.FileName, metadataJson ?? "{}", createdBy, cancellationToken);
+                    operationName, stream, file.FileName, metadataJson ?? "{}", createdBy, notifications, cancellationToken);
 
                 return Results.Ok(new { OperationId = operationId });
             }
