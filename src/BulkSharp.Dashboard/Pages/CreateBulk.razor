@@ -219,6 +219,80 @@
                         }
                     </div>
 
+                    <!-- Notifications -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <label class="form-label mb-0">
+                                <i class="bi bi-bell me-1"></i>Notifications
+                            </label>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ToggleNotifications">
+                                <i class="bi @(showNotifications ? "bi-chevron-up" : "bi-chevron-down") me-1"></i>@(showNotifications ? "Hide" : "Configure")
+                            </button>
+                        </div>
+                        @if (showNotifications)
+                        {
+                            <div class="border rounded p-3">
+                                @if (notificationRecipients.Count == 0)
+                                {
+                                    <p class="text-muted small mb-2">No notification recipients configured. Add one to get notified when this operation completes or fails.</p>
+                                }
+                                @for (var i = 0; i < notificationRecipients.Count; i++)
+                                {
+                                    var idx = i;
+                                    var recipient = notificationRecipients[idx];
+                                    <div class="border rounded p-2 mb-2 bg-light">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div class="row g-2 flex-grow-1">
+                                                <div class="col-4">
+                                                    <select class="form-select form-select-sm" @bind="recipient.Channel">
+                                                        <option value="email">Email</option>
+                                                        <option value="slack">Slack</option>
+                                                        <option value="webhook">Webhook</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-8">
+                                                    <input type="text" class="form-control form-control-sm" @bind="recipient.Target"
+                                                           placeholder="@GetTargetPlaceholder(recipient.Channel)" />
+                                                </div>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" @onclick="() => RemoveRecipient(idx)">
+                                                <i class="bi bi-x"></i>
+                                            </button>
+                                        </div>
+                                        <div class="d-flex flex-wrap gap-3" style="font-size: 0.8rem;">
+                                            <span class="text-muted me-1">Notify on:</span>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" id="comp-@idx" @bind="recipient.OnCompletion">
+                                                <label class="form-check-label" for="comp-@idx">Completed</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" id="fail-@idx" @bind="recipient.OnFailure">
+                                                <label class="form-check-label" for="fail-@idx">Failed</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" id="cerr-@idx" @bind="recipient.OnCompletionWithErrors">
+                                                <label class="form-check-label" for="cerr-@idx">Partial Failure</label>
+                                            </div>
+                                            <div class="form-check form-check-inline">
+                                                <input class="form-check-input" type="checkbox" id="canc-@idx" @bind="recipient.OnCancelled">
+                                                <label class="form-check-label" for="canc-@idx">Cancelled</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                                <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddRecipient">
+                                    <i class="bi bi-plus me-1"></i>Add Recipient
+                                </button>
+                            </div>
+                        }
+                        else if (notificationRecipients.Count > 0)
+                        {
+                            <small class="text-muted">
+                                <i class="bi bi-bell-fill text-primary me-1"></i>@notificationRecipients.Count recipient(s) configured
+                            </small>
+                        }
+                    </div>
+
                     <!-- Validation Status -->
                     @if (isValidating)
                     {
@@ -320,6 +394,7 @@
                     <li class="mb-2"><strong>Select an operation</strong> - Choose from the registered bulk operations in your application.</li>
                     <li class="mb-2"><strong>Upload a file</strong> - CSV or JSON file with your data rows.</li>
                     <li class="mb-2"><strong>Add metadata</strong> - Optional context passed to every row during processing (e.g. import source, target tenant).</li>
+                    <li class="mb-2"><strong>Set up notifications</strong> - Optionally configure email, Slack, or webhook recipients to be notified when the operation completes or fails.</li>
                     <li class="mb-2"><strong>Submit</strong> - The file is stored, rows are parsed, validated, and processed one by one.</li>
                     <li><strong>Monitor</strong> - Track progress in real-time from the dashboard or operations list.</li>
                 </ol>
@@ -388,6 +463,20 @@
     private string successMessage = "";
     private bool showJsonEditor = true;
     private List<MetadataField> metadataFields = new();
+
+    // Notification state
+    private bool showNotifications;
+    private List<NotificationRecipientField> notificationRecipients = new();
+
+    private class NotificationRecipientField
+    {
+        public string Channel { get; set; } = "email";
+        public string Target { get; set; } = "";
+        public bool OnCompletion { get; set; }
+        public bool OnFailure { get; set; } = true;
+        public bool OnCompletionWithErrors { get; set; } = true;
+        public bool OnCancelled { get; set; }
+    }
 
     // Validation state
     private bool isValidating;
@@ -640,6 +729,46 @@
 
     private void AddMetadataField() => metadataFields.Add(new MetadataField());
 
+    private void ToggleNotifications() => showNotifications = !showNotifications;
+
+    private void AddRecipient() => notificationRecipients.Add(new NotificationRecipientField());
+
+    private void RemoveRecipient(int index)
+    {
+        if (index >= 0 && index < notificationRecipients.Count)
+            notificationRecipients.RemoveAt(index);
+    }
+
+    private static string GetTargetPlaceholder(string channel) => channel switch
+    {
+        "email" => "user@example.com",
+        "slack" => "#channel or @user",
+        "webhook" => "https://hooks.example.com/...",
+        _ => "target"
+    };
+
+    private string GetNotificationsJson()
+    {
+        var validRecipients = notificationRecipients
+            .Where(r => !string.IsNullOrWhiteSpace(r.Target))
+            .ToList();
+
+        if (validRecipients.Count == 0)
+            return "";
+
+        var recipients = validRecipients.Select(r => new
+        {
+            channel = r.Channel,
+            target = r.Target.Trim(),
+            triggers = (r.OnCompletion ? 1 : 0)
+                     | (r.OnFailure ? 2 : 0)
+                     | (r.OnCompletionWithErrors ? 4 : 0)
+                     | (r.OnCancelled ? 8 : 0)
+        }).ToList();
+
+        return JsonSerializer.Serialize(new { recipients });
+    }
+
     private async Task HandleSubmit()
     {
         if (selectedFile == null) { errorMessage = "Please select a file"; return; }
@@ -661,6 +790,9 @@
             content.Add(new StringContent(selectedOperation), "operationName");
             content.Add(new StringContent(string.IsNullOrEmpty(createdBy) ? "Dashboard User" : createdBy), "createdBy");
             content.Add(new StringContent(finalMetadata), "metadata");
+            var notificationsJson = GetNotificationsJson();
+            if (!string.IsNullOrEmpty(notificationsJson))
+                content.Add(new StringContent(notificationsJson), "notifications");
 
             var response = await Http.PostAsync("/api/bulks", content);
             if (response.IsSuccessStatusCode)
@@ -679,6 +811,8 @@
                 metadataFields.Clear();
                 metadataFields.Add(new MetadataField());
                 ResetValidationState();
+                notificationRecipients.Clear();
+                showNotifications = false;
             }
             else
             {
