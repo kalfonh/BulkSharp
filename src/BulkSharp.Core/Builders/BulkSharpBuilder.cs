@@ -1,6 +1,7 @@
 using System.Reflection;
 using BulkSharp.Core.Abstractions.Events;
 using BulkSharp.Core.Abstractions.Export;
+using BulkSharp.Core.Abstractions.Notifications;
 using BulkSharp.Core.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -111,6 +112,16 @@ public sealed class BulkSharpBuilder
     public BulkSharpBuilder AddEventHandler<T>() where T : class, IBulkOperationEventHandler
     {
         _services.AddScoped<IBulkOperationEventHandler, T>();
+        return this;
+    }
+
+    /// <summary>
+    /// Registers a notification channel for delivering per-operation notifications.
+    /// Multiple channels can be registered (e.g., email, Slack, webhook).
+    /// </summary>
+    public BulkSharpBuilder AddNotificationChannel<T>() where T : class, IBulkNotificationChannel
+    {
+        _services.AddScoped<IBulkNotificationChannel, T>();
         return this;
     }
 

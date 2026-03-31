@@ -2,6 +2,7 @@ using BulkSharp;
 using BulkSharp.Builders;
 using BulkSharp.Core.Abstractions.Events;
 using BulkSharp.Core.Abstractions.Export;
+using BulkSharp.Processing.Notifications;
 using BulkSharp.Core.Abstractions.Storage;
 using BulkSharp.Core.Configuration;
 using BulkSharp.Processing.Export;
@@ -244,6 +245,9 @@ public static class BulkSharpServiceCollectionExtensions
         // Event dispatcher
         services.TryAddScoped<IBulkOperationEventDispatcher, BulkOperationEventDispatcher>();
 
+        // Notification event handler — dispatches to registered IBulkNotificationChannel implementations
+        services.AddScoped<IBulkOperationEventHandler, NotificationEventHandler>();
+
         // Retry and export services
         services.AddScoped<IBulkRetryService, BulkRetryService>();
         services.AddScoped<IBulkExportService, BulkExportService>();
@@ -286,6 +290,9 @@ public static class BulkSharpServiceCollectionExtensions
 
         // Event dispatcher
         services.TryAddScoped<IBulkOperationEventDispatcher, BulkOperationEventDispatcher>();
+
+        // Notification event handler — dispatches to registered IBulkNotificationChannel implementations
+        services.AddScoped<IBulkOperationEventHandler, NotificationEventHandler>();
 
         // Retry and export services
         services.AddScoped<IBulkRetryService, BulkRetryService>();
