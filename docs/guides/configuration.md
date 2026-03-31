@@ -146,6 +146,8 @@ Available events: `OnOperationCreatedAsync`, `OnStatusChangedAsync`, `OnOperatio
 
 Handlers run in parallel. A failing handler is logged but never blocks processing.
 
+For **per-operation** notifications (e.g., email a specific user when their import completes), see the [Per-Operation Notifications](notifications.md) guide.
+
 For explicit control, you can still use `builder.AddEventHandler<T>()`:
 
 ```csharp
@@ -160,6 +162,7 @@ BulkSharp scans assemblies for implementations of these extensibility interfaces
 | Interface | Purpose | Runs |
 |---|---|---|
 | `IBulkOperationEventHandler` | Lifecycle events (created, completed, failed) | On state transitions |
+| `IBulkNotificationChannel` | Per-operation notification delivery (email, Slack, etc.) | On terminal events matching recipient triggers |
 | `IBulkMetadataValidator<TMetadata>` | Validates operation metadata | Before processing starts |
 | `IBulkRowValidator<TMetadata, TRow>` | Cross-cutting row validation | Before each row is processed |
 | `IBulkRowProcessor<TMetadata, TRow>` | Post-processing hook per row | After each row is processed |
