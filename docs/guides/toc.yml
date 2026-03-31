@@ -31,7 +31,8 @@
   href: signal-service.md
 
 # ── Event Hooks & Notifications ───────────────────────────
-# (covered in configuration.md Event Hooks section)
+- name: Per-Operation Notifications
+  href: notifications.md
 
 # ── Storage & Providers ───────────────────────────────────
 - name: EF Core Storage
