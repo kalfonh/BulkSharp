@@ -2,6 +2,7 @@
 @using BulkSharp.Core.Domain.Operations
 @using System.Net.Http.Json
 @using BulkSharp.Core.Domain.Queries
+@using BulkSharp.Core.Domain.Notifications
 @inject HttpClient Http
 @inject NavigationManager Navigation
 @inject ILogger<OperationDetails> Logger
@@ -141,6 +142,29 @@ else
                                     </a>
                                 </div>
                             </div>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(operation.NotificationOptionsJson))
+                    {
+                        <div class="mt-2 pt-2 border-top">
+                            <small class="text-muted d-block mb-1">
+                                <i class="bi bi-bell-fill text-primary me-1"></i>Notifications
+                            </small>
+                            @{
+                                NotificationOptions? notifOpts = null;
+                                try { notifOpts = System.Text.Json.JsonSerializer.Deserialize<NotificationOptions>(operation.NotificationOptionsJson); } catch { }
+                            }
+                            @if (notifOpts?.Recipients?.Count > 0)
+                            {
+                                @foreach (var r in notifOpts.Recipients)
+                                {
+                                    <div class="d-flex align-items-center gap-2 mb-1" style="font-size: 0.8rem;">
+                                        <span class="badge bg-secondary">@r.Channel</span>
+                                        <span>@r.Target</span>
+                                        <span class="text-muted ms-auto">@FormatTriggers(r.Triggers)</span>
+                                    </div>
+                                }
+                            }
                         </div>
                     }
                 </div>
@@ -731,6 +755,17 @@ else
         if (duration.TotalSeconds < 60) return $"{duration.TotalSeconds:0}s";
         if (duration.TotalMinutes < 60) return $"{duration.TotalMinutes:0.0}m";
         return $"{duration.TotalHours:0.0}h";
+    }
+
+    private static string FormatTriggers(NotificationTrigger triggers)
+    {
+        var parts = new List<string>();
+        if (triggers.HasFlag(NotificationTrigger.OnCompletion)) parts.Add("Completed");
+        if (triggers.HasFlag(NotificationTrigger.OnFailure)) parts.Add("Failed");
+        if (triggers.HasFlag(NotificationTrigger.OnCompletionWithErrors)) parts.Add("Partial");
+        if (triggers.HasFlag(NotificationTrigger.OnCancelled)) parts.Add("Cancelled");
+        if (triggers.HasFlag(NotificationTrigger.OnStatusChange)) parts.Add("Status Changes");
+        return parts.Count > 0 ? string.Join(", ", parts) : "None";
     }
 
     private class RetrySubmissionResult
