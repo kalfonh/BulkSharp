@@ -4,7 +4,8 @@ using BulkSharp.Sample.Dashboard.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddBulkSharp(bulk => bulk
-    .ConfigureOptions(opts => opts.MaxRowConcurrency = 5));
+    .ConfigureOptions(opts => opts.MaxRowConcurrency = 5)
+    .AddNotificationChannel<BulkSharp.Sample.Dashboard.Services.LogNotificationChannel>());
 
 // Add BulkSharp Dashboard UI
 builder.Services.AddBulkSharpDashboard();
