@@ -289,7 +289,7 @@
             if (filterFromDate.HasValue) qs += $"&fromDate={filterFromDate.Value:yyyy-MM-dd}";
             if (filterToDate.HasValue) qs += $"&toDate={filterToDate.Value:yyyy-MM-dd}";
 
-            pagedResult = await Http.GetFromJsonAsync<PagedResult<BulkOperation>>(qs, BulkSharpJsonSerialization.Options, _cts.Token);
+            pagedResult = await Http.GetFromBulkSharpJsonAsync<PagedResult<BulkOperation>>(qs, _cts.Token);
         }
         catch (Exception ex)
         {

@@ -511,7 +511,7 @@
     {
         try
         {
-            availableOperations = await Http.GetFromJsonAsync<List<DiscoveredOperation>>("/api/operations", BulkSharpJsonSerialization.Options);
+            availableOperations = await Http.GetFromBulkSharpJsonAsync<List<DiscoveredOperation>>("/api/operations");
         }
         catch (Exception ex)
         {
