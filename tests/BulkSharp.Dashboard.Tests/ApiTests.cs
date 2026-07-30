@@ -139,6 +139,64 @@ public class ApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetStatus_ReturnsTypedStatusWithProgress()
+    {
+        using var scope = _app.Services.CreateScope();
+        var operationRepo = scope.ServiceProvider.GetRequiredService<IBulkOperationRepository>();
+        var operation = new BulkOperation
+        {
+            Id = Guid.NewGuid(),
+            OperationName = "status-probe",
+            Status = BulkOperationStatus.Running,
+            TotalRows = 4,
+            ProcessedRows = 1,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = "test-user"
+        };
+        await operationRepo.CreateAsync(operation);
+
+        var status = await _client.GetFromJsonAsync<BulkStatusDto>(
+            $"/api/bulks/{operation.Id}/status", BulkSharpJsonSerialization.Options);
+
+        Assert.NotNull(status);
+        Assert.Equal(BulkOperationStatus.Running, status.Status);
+        Assert.Equal(1, status.ProcessedRows);
+        Assert.Equal(4, status.TotalRows);
+        Assert.Equal(25d, status.Progress);
+        Assert.Null(status.CompletedAt);
+    }
+
+    [Fact]
+    public async Task GetStatus_WithNoRows_ReportsZeroProgressRatherThanDividingByZero()
+    {
+        using var scope = _app.Services.CreateScope();
+        var operationRepo = scope.ServiceProvider.GetRequiredService<IBulkOperationRepository>();
+        var operation = new BulkOperation
+        {
+            Id = Guid.NewGuid(),
+            OperationName = "empty-probe",
+            Status = BulkOperationStatus.Pending,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = "test-user"
+        };
+        await operationRepo.CreateAsync(operation);
+
+        var status = await _client.GetFromJsonAsync<BulkStatusDto>(
+            $"/api/bulks/{operation.Id}/status", BulkSharpJsonSerialization.Options);
+
+        Assert.NotNull(status);
+        Assert.Equal(0d, status.Progress);
+    }
+
+    [Fact]
+    public async Task GetStatus_WithUnknownId_ReturnsNotFound()
+    {
+        var response = await _client.GetAsync($"/api/bulks/{Guid.NewGuid()}/status");
+
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Api_SerializesEnumsAsStrings()
     {
         using var scope = _app.Services.CreateScope();
