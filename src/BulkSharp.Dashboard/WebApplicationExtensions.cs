@@ -186,15 +186,13 @@ public static class WebApplicationExtensions
             if (bulk == null)
                 return Results.NotFound();
 
-            return Results.Ok(new
-            {
+            return Results.Ok(new BulkStatusDto(
                 bulk.Status,
                 bulk.ProcessedRows,
                 bulk.TotalRows,
                 bulk.ErrorCount,
                 bulk.CompletedAt,
-                Progress = bulk.TotalRows > 0 ? (bulk.ProcessedRows * 100.0 / bulk.TotalRows) : 0
-            });
+                bulk.TotalRows > 0 ? bulk.ProcessedRows * 100.0 / bulk.TotalRows : 0));
         });
 
         var cancelEndpoint = app.MapPost("/api/bulks/{id}/cancel", async (

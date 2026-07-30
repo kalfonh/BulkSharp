@@ -842,17 +842,15 @@
         if (operationId == null) return;
         try
         {
-            var response = await Http.GetFromJsonAsync<JsonElement>($"/api/bulks/{operationId}/status");
-            if (response.TryGetProperty("status", out var s) || response.TryGetProperty("Status", out s))
+            var status = await Http.GetFromBulkSharpJsonAsync<BulkStatusDto>($"/api/bulks/{operationId}/status");
+            if (status is not null)
             {
-                operationStatus = s.ValueKind == JsonValueKind.Number
-                    ? ((BulkOperationStatus)s.GetInt32()).ToString()
-                    : s.GetString() ?? "Unknown";
+                operationStatus = status.Status.ToString();
+                processedRows = status.ProcessedRows;
+                totalRows = status.TotalRows;
+                errorCount = status.ErrorCount;
+                progressPercent = (int)status.Progress;
             }
-            if (response.TryGetProperty("processedRows", out var p)) processedRows = p.GetInt32();
-            if (response.TryGetProperty("totalRows", out var t)) totalRows = t.GetInt32();
-            if (response.TryGetProperty("errorCount", out var e)) errorCount = e.GetInt32();
-            if (response.TryGetProperty("progress", out var pr)) progressPercent = (int)pr.GetDouble();
             await InvokeAsync(StateHasChanged);
             if (operationStatus is "Completed" or "CompletedWithErrors" or "Failed" or "Cancelled")
             {
