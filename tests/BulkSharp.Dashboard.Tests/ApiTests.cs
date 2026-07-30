@@ -197,6 +197,28 @@ public class ApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetRows_ReturnsPagedTypedRowProgress()
+    {
+        var result = await _client.GetFromJsonAsync<PagedResult<RowProgressDto>>(
+            $"/api/bulks/{Guid.NewGuid()}/rows", BulkSharpJsonSerialization.Options);
+
+        Assert.NotNull(result);
+        Assert.NotNull(result.Items);
+        Assert.Empty(result.Items);
+    }
+
+    [Fact]
+    public async Task GetRows_WithNoMatchingFilter_ReturnsTypedEmptyEnvelope()
+    {
+        var json = await _client.GetStringAsync(
+            $"/api/bulks/{Guid.NewGuid()}/rows?state=Completed");
+
+        Assert.Contains("\"items\":", json);
+        Assert.Contains("\"totalCount\":", json);
+        Assert.DoesNotContain("\"Items\":", json);
+    }
+
+    [Fact]
     public async Task Api_SerializesEnumsAsStrings()
     {
         using var scope = _app.Services.CreateScope();

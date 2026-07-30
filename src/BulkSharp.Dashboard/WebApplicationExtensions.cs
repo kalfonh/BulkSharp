@@ -232,7 +232,7 @@ public static class WebApplicationExtensions
                 filteredRowNumbers = filtered.Items.Select(r => r.RowNumber).Distinct().ToList();
 
                 if (filteredRowNumbers.Count == 0)
-                    return Results.Ok(new { Items = Array.Empty<object>(), TotalCount = 0, Page = page, PageSize = pageSize, HasNextPage = false });
+                    return Results.Ok(new PagedResult<RowProgressDto> { Page = page, PageSize = pageSize });
             }
 
             var rowNumbersPage = filteredRowNumbers != null
@@ -246,7 +246,12 @@ public static class WebApplicationExtensions
                 : await repo.QueryDistinctRowNumbersAsync(id, page, pageSize, cancellationToken);
 
             if (rowNumbersPage.Items.Count == 0)
-                return Results.Ok(new { Items = Array.Empty<object>(), rowNumbersPage.TotalCount, rowNumbersPage.Page, rowNumbersPage.PageSize, rowNumbersPage.HasNextPage });
+                return Results.Ok(new PagedResult<RowProgressDto>
+                {
+                    TotalCount = rowNumbersPage.TotalCount,
+                    Page = rowNumbersPage.Page,
+                    PageSize = rowNumbersPage.PageSize
+                });
 
             // Fetch all records for these rows (all step indexes including -1)
             var recordResult = await repo.QueryAsync(new BulkRowRecordQuery
@@ -278,38 +283,33 @@ public static class WebApplicationExtensions
                         ?? validationRecord?.StepName
                         ?? "Unknown";
 
-                    var currentState = latestNonPending?.State.ToString()
-                        ?? validationRecord?.State.ToString()
-                        ?? RowRecordState.Pending.ToString();
+                    var currentState = latestNonPending?.State
+                        ?? validationRecord?.State
+                        ?? RowRecordState.Pending;
 
-                    return new
-                    {
-                        RowNumber = g.Key,
-                        RowId = g.First().RowId,
-                        CurrentStep = currentStep,
-                        CurrentState = currentState,
-                        CompletedSteps = executionSteps.Count(r => r.State == RowRecordState.Completed),
-                        TotalSteps = Math.Max(executionSteps.Count, 1),
-                        Steps = executionSteps.OrderBy(r => r.StepIndex).Select(r => new
-                        {
+                    return new RowProgressDto(
+                        g.Key,
+                        g.First().RowId,
+                        currentStep,
+                        currentState,
+                        executionSteps.Count(r => r.State == RowRecordState.Completed),
+                        Math.Max(executionSteps.Count, 1),
+                        executionSteps.OrderBy(r => r.StepIndex).Select(r => new RowStepDto(
                             r.StepName,
-                            State = r.State.ToString(),
+                            r.State,
                             r.SignalKey,
                             r.StartedAt,
                             r.CompletedAt,
-                            r.ErrorMessage
-                        })
-                    };
+                            r.ErrorMessage)).ToList());
                 })
                 .OrderBy(r => r.RowNumber);
 
-            return Results.Ok(new
+            return Results.Ok(new PagedResult<RowProgressDto>
             {
                 Items = rows.ToList(),
-                rowNumbersPage.TotalCount,
-                rowNumbersPage.Page,
-                rowNumbersPage.PageSize,
-                rowNumbersPage.HasNextPage
+                TotalCount = rowNumbersPage.TotalCount,
+                Page = rowNumbersPage.Page,
+                PageSize = rowNumbersPage.PageSize
             });
         });
 
