@@ -155,25 +155,20 @@ public static class WebApplicationExtensions
 
             var result = await rowRecordRepo.QueryAsync(query, cancellationToken);
 
-            var items = result.Items.Select(r => new
+            return Results.Ok(new PagedResult<RowErrorDto>
             {
-                r.Id,
-                r.BulkOperationId,
-                r.RowNumber,
-                r.RowId,
-                ErrorType = r.ErrorType?.ToString() ?? "Unknown",
-                r.ErrorMessage,
-                RowData = r.RowData,
-                r.CreatedAt
-            });
-
-            return Results.Ok(new
-            {
-                Items = items,
-                result.TotalCount,
-                result.Page,
-                result.PageSize,
-                result.HasNextPage
+                Items = result.Items.Select(r => new RowErrorDto(
+                    r.Id,
+                    r.BulkOperationId,
+                    r.RowNumber,
+                    r.RowId,
+                    r.ErrorType,
+                    r.ErrorMessage,
+                    r.RowData,
+                    r.CreatedAt)).ToList(),
+                TotalCount = result.TotalCount,
+                Page = result.Page,
+                PageSize = result.PageSize
             });
         });
 
