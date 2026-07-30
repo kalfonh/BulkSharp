@@ -238,12 +238,24 @@ public class ApiTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetOperationErrors_ReturnsErrorsList()
+    public async Task GetOperationErrors_ReturnsPagedTypedErrors()
     {
-        var response = await _client.GetAsync($"/api/bulks/{Guid.NewGuid()}/errors");
-        response.EnsureSuccessStatusCode();
+        var result = await _client.GetFromJsonAsync<PagedResult<RowErrorDto>>(
+            $"/api/bulks/{Guid.NewGuid()}/errors", BulkSharpJsonSerialization.Options);
 
-        var json = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.True(json.TryGetProperty("Items", out _) || json.TryGetProperty("items", out _));
+        Assert.NotNull(result);
+        Assert.NotNull(result.Items);
+        Assert.Equal(0, result.TotalCount);
+        Assert.False(result.HasNextPage);
+    }
+
+    [Fact]
+    public async Task GetOperationErrors_UsesCamelCaseEnvelope()
+    {
+        var json = await _client.GetStringAsync($"/api/bulks/{Guid.NewGuid()}/errors");
+
+        Assert.Contains("\"items\":", json);
+        Assert.Contains("\"totalCount\":", json);
+        Assert.DoesNotContain("\"Items\":", json);
     }
 }

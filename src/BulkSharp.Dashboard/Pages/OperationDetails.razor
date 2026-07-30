@@ -326,7 +326,7 @@ else
                                         </td>
                                     }
                                     <td>@(error.RowId ?? $"#{error.RowNumber}")</td>
-                                    <td><code>@error.ErrorType</code></td>
+                                    <td><code>@(string.IsNullOrEmpty(error.ErrorType) ? "Unknown" : error.ErrorType)</code></td>
                                     <td>@error.ErrorMessage</td>
                                     @if (operation.Status == BulkOperationStatus.CompletedWithErrors)
                                     {
