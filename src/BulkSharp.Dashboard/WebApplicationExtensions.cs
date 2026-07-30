@@ -37,34 +37,29 @@ public static class WebApplicationExtensions
         app.UseRouting();
 
         app.MapGet("/api/operations", (IBulkOperationDiscovery discovery) =>
-        {
-            var operations = discovery.DiscoverOperations();
-            return operations.Select(op => new
+            discovery.DiscoverOperations().Select(op => new OperationDescriptorDto
             {
-                op.Name,
-                op.Description,
-                op.IsStepBased,
+                Name = op.Name,
+                Description = op.Description,
+                IsStepBased = op.IsStepBased,
                 MetadataType = op.MetadataType?.Name,
                 RowType = op.RowType?.Name,
                 TypeFullName = op.OperationType?.FullName,
                 MetadataFields = op.MetadataType?.GetProperties()
                     .Where(p => p.CanWrite)
-                    .Select(p => new
-                    {
+                    .Select(p => new OperationFieldDto(
                         p.Name,
-                        Type = GetFriendlyTypeName(p.PropertyType),
-                        Required = p.GetCustomAttribute<RequiredAttribute>() != null
-                    }),
+                        GetFriendlyTypeName(p.PropertyType),
+                        p.GetCustomAttribute<RequiredAttribute>() != null))
+                    .ToList() ?? [],
                 FileColumns = op.RowType?.GetProperties()
                     .Where(p => p.CanWrite)
-                    .Select(p => new
-                    {
-                        Name = p.GetCustomAttribute<CsvColumnAttribute>()?.Name ?? p.Name,
-                        Type = GetFriendlyTypeName(p.PropertyType),
-                        Required = p.GetCustomAttribute<CsvColumnAttribute>()?.Required ?? false
-                    })
-            });
-        });
+                    .Select(p => new OperationFieldDto(
+                        p.GetCustomAttribute<CsvColumnAttribute>()?.Name ?? p.Name,
+                        GetFriendlyTypeName(p.PropertyType),
+                        p.GetCustomAttribute<CsvColumnAttribute>()?.Required ?? false))
+                    .ToList() ?? []
+            }).ToList());
 
         app.MapGet("/api/operations/{name}/template", (
             string name,

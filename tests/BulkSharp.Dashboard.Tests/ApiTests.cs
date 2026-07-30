@@ -91,6 +91,54 @@ public class ApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GetOperations_ReturnsTypedDescriptors()
+    {
+        var descriptors = await _client.GetFromJsonAsync<List<OperationDescriptorDto>>(
+            "/api/operations", BulkSharpJsonSerialization.Options);
+
+        Assert.NotNull(descriptors);
+
+        var probe = Assert.Single(descriptors, d => d.Name == "probe-operation");
+        Assert.Equal("Discovery probe used by the dashboard tests.", probe.Description);
+        Assert.False(probe.IsStepBased);
+        Assert.Equal(nameof(ProbeMetadata), probe.MetadataType);
+        Assert.Equal(nameof(ProbeRow), probe.RowType);
+    }
+
+    [Fact]
+    public async Task GetOperations_DescribesMetadataFieldsWithTypesAndRequiredness()
+    {
+        var descriptors = await _client.GetFromJsonAsync<List<OperationDescriptorDto>>(
+            "/api/operations", BulkSharpJsonSerialization.Options);
+
+        var probe = Assert.Single(descriptors!, d => d.Name == "probe-operation");
+
+        var accountId = Assert.Single(probe.MetadataFields, f => f.Name == nameof(ProbeMetadata.AccountId));
+        Assert.Equal("string", accountId.Type);
+        Assert.True(accountId.Required);
+
+        var batchSize = Assert.Single(probe.MetadataFields, f => f.Name == nameof(ProbeMetadata.BatchSize));
+        Assert.Equal("int?", batchSize.Type);
+        Assert.False(batchSize.Required);
+    }
+
+    [Fact]
+    public async Task GetOperations_DescribesFileColumnsUsingCsvColumnNames()
+    {
+        var descriptors = await _client.GetFromJsonAsync<List<OperationDescriptorDto>>(
+            "/api/operations", BulkSharpJsonSerialization.Options);
+
+        var probe = Assert.Single(descriptors!, d => d.Name == "probe-operation");
+
+        var email = Assert.Single(probe.FileColumns, c => c.Name == "Email Address");
+        Assert.Equal("string", email.Type);
+        Assert.True(email.Required);
+
+        var displayName = Assert.Single(probe.FileColumns, c => c.Name == nameof(ProbeRow.DisplayName));
+        Assert.False(displayName.Required);
+    }
+
+    [Fact]
     public async Task Api_SerializesEnumsAsStrings()
     {
         using var scope = _app.Services.CreateScope();
