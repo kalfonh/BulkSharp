@@ -617,7 +617,7 @@ else
 
     private async Task LoadAllData()
     {
-        var opTask = Http.GetFromJsonAsync<BulkOperation>($"api/bulks/{id}", _cts.Token);
+        var opTask = Http.GetFromJsonAsync<BulkOperation>($"api/bulks/{id}", BulkSharpJsonSerialization.Options, _cts.Token);
         var errTask = LoadErrors();
         var rowTask = LoadRows();
 
@@ -630,7 +630,7 @@ else
         var qs = $"api/bulks/{id}/errors?page={errorPage}&pageSize={errorPageSize}&sortBy={errorSortBy}&sortDescending={errorSortDescending}";
         if (!string.IsNullOrEmpty(errorFilterRowId)) qs += $"&rowId={Uri.EscapeDataString(errorFilterRowId)}";
         if (!string.IsNullOrEmpty(errorFilterType)) qs += $"&errorType={Uri.EscapeDataString(errorFilterType)}";
-        errorResult = await Http.GetFromJsonAsync<PagedErrorResult>(qs, _cts.Token);
+        errorResult = await Http.GetFromJsonAsync<PagedErrorResult>(qs, BulkSharpJsonSerialization.Options, _cts.Token);
     }
 
     private async Task LoadRows()
@@ -639,7 +639,7 @@ else
         if (!string.IsNullOrEmpty(rowFilterRowId)) qs += $"&rowId={Uri.EscapeDataString(rowFilterRowId)}";
         if (!string.IsNullOrEmpty(rowFilterState)) qs += $"&state={rowFilterState}";
         if (!string.IsNullOrEmpty(rowFilterStepName)) qs += $"&stepName={Uri.EscapeDataString(rowFilterStepName)}";
-        rowResult = await Http.GetFromJsonAsync<PagedRowResult>(qs, _cts.Token);
+        rowResult = await Http.GetFromJsonAsync<PagedRowResult>(qs, BulkSharpJsonSerialization.Options, _cts.Token);
     }
 
     private async Task PollStatusAsync()
@@ -821,7 +821,7 @@ else
         var qs = $"api/bulks/{id}/errors?pageSize=10000";
         if (!string.IsNullOrEmpty(errorFilterRowId)) qs += $"&rowId={Uri.EscapeDataString(errorFilterRowId)}";
         if (!string.IsNullOrEmpty(errorFilterType)) qs += $"&errorType={Uri.EscapeDataString(errorFilterType)}";
-        var filtered = await Http.GetFromJsonAsync<PagedErrorResult>(qs, _cts.Token);
+        var filtered = await Http.GetFromJsonAsync<PagedErrorResult>(qs, BulkSharpJsonSerialization.Options, _cts.Token);
         var rowNumbers = filtered?.Items.Select(e => e.RowNumber).Distinct().ToList();
         if (rowNumbers == null || rowNumbers.Count == 0) return;
         await ExecuteRetryAsync(rowNumbers, $"{rowNumbers.Count} filtered rows");
@@ -854,7 +854,7 @@ else
             }
             else
             {
-                var result = await response.Content.ReadFromJsonAsync<RetrySubmissionResult>(_cts.Token);
+                var result = await response.Content.ReadFromJsonAsync<RetrySubmissionResult>(BulkSharpJsonSerialization.Options, _cts.Token);
                 var msg = $"Retry submitted for {description}: {result?.RowsSubmitted ?? 0} rows queued";
                 if (result?.RowsSkipped > 0) msg += $", {result.RowsSkipped} skipped";
                 retrySuccess = msg;

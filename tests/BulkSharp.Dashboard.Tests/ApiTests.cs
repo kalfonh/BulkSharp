@@ -1,4 +1,5 @@
 using BulkSharp.Core.Abstractions.Operations;
+using BulkSharp.Core.Contracts;
 using BulkSharp.Core.Abstractions.Storage;
 using BulkSharp.Core.Domain.Operations;
 using BulkSharp.Core.Domain.Queries;
@@ -51,7 +52,8 @@ public class ApiTests : IAsyncLifetime
         var response = await _client.GetAsync("/api/bulks");
         response.EnsureSuccessStatusCode();
 
-        var result = await response.Content.ReadFromJsonAsync<PagedResult<BulkOperation>>();
+        var result = await response.Content.ReadFromJsonAsync<PagedResult<BulkOperation>>(
+            BulkSharpJsonSerialization.Options);
         Assert.NotNull(result);
         Assert.NotNull(result.Items);
     }
@@ -75,7 +77,8 @@ public class ApiTests : IAsyncLifetime
         var response = await _client.GetAsync($"/api/bulks/{operation.Id}");
         response.EnsureSuccessStatusCode();
 
-        var returnedOperation = await response.Content.ReadFromJsonAsync<BulkOperation>();
+        var returnedOperation = await response.Content.ReadFromJsonAsync<BulkOperation>(
+            BulkSharpJsonSerialization.Options);
         Assert.NotNull(returnedOperation);
         Assert.Equal(operation.Id, returnedOperation.Id);
     }
@@ -85,6 +88,47 @@ public class ApiTests : IAsyncLifetime
     {
         var response = await _client.GetAsync($"/api/bulks/{Guid.NewGuid()}");
         Assert.Equal(System.Net.HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Api_SerializesEnumsAsStrings()
+    {
+        using var scope = _app.Services.CreateScope();
+        var operationRepo = scope.ServiceProvider.GetRequiredService<IBulkOperationRepository>();
+        var operation = new BulkOperation
+        {
+            Id = Guid.NewGuid(),
+            OperationName = "enum-probe",
+            Status = BulkOperationStatus.Running,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = "test-user"
+        };
+        await operationRepo.CreateAsync(operation);
+
+        var json = await _client.GetStringAsync($"/api/bulks/{operation.Id}");
+
+        Assert.Contains("\"status\":\"Running\"", json);
+    }
+
+    [Fact]
+    public async Task Api_UsesCamelCasePropertyNames()
+    {
+        using var scope = _app.Services.CreateScope();
+        var operationRepo = scope.ServiceProvider.GetRequiredService<IBulkOperationRepository>();
+        var operation = new BulkOperation
+        {
+            Id = Guid.NewGuid(),
+            OperationName = "casing-probe",
+            Status = BulkOperationStatus.Pending,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = "test-user"
+        };
+        await operationRepo.CreateAsync(operation);
+
+        var json = await _client.GetStringAsync($"/api/bulks/{operation.Id}");
+
+        Assert.Contains("\"operationName\":", json);
+        Assert.DoesNotContain("\"OperationName\":", json);
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using BulkSharp.Core.Contracts;
 using BulkSharp.Dashboard.Services;
 
 namespace BulkSharp.Dashboard;
@@ -17,6 +18,12 @@ public static class ServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddBulkSharpDashboard(this IServiceCollection services)
     {
+        // Pin the HTTP response contract. Generated API clients depend on camelCase
+        // property names and string-valued enums; without this, enums serialize as
+        // integers and every client needs a hand-maintained lookup table.
+        services.ConfigureHttpJsonOptions(options =>
+            BulkSharpJsonSerialization.Configure(options.SerializerOptions));
+
         // Configure antiforgery for Blazor Server
         services.AddAntiforgery(options =>
         {
