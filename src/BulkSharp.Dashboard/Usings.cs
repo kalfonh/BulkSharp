@@ -1,5 +1,6 @@
 global using BulkSharp.Core.Abstractions.Operations;
 global using BulkSharp.Core.Contracts;
+global using BulkSharp.Dashboard.Services;
 global using BulkSharp.Core.Abstractions.Storage;
 global using BulkSharp.Core.Domain.Operations;
 global using BulkSharp.Processing.Services;

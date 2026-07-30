@@ -267,7 +267,7 @@
     {
         try
         {
-            var result = await Http.GetFromJsonAsync<PagedResult<DisplayedBulkOperation>>("api/bulks", BulkSharpJsonSerialization.Options);
+            var result = await Http.GetFromBulkSharpJsonAsync<PagedResult<DisplayedBulkOperation>>("api/bulks");
             recentOperations = result?.Items.ToList() ?? [];
         }
         catch (Exception ex) { Logger.LogWarning(ex, "Failed to load recent operations"); recentOperations = []; }
@@ -275,7 +275,7 @@
 
     private async Task LoadAvailableOperations()
     {
-        try { availableOperations = await Http.GetFromJsonAsync<List<DiscoveredOperation>>("api/operations", BulkSharpJsonSerialization.Options); }
+        try { availableOperations = await Http.GetFromBulkSharpJsonAsync<List<DiscoveredOperation>>("api/operations"); }
         catch (Exception ex) { Logger.LogWarning(ex, "Failed to load available operations"); availableOperations = []; }
     }
 
