@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\BulkSharp\BulkSharp.csproj" />
+    <ProjectReference Include="..\..\src\BulkSharp.Api\BulkSharp.Api.csproj" />
     <ProjectReference Include="..\..\src\BulkSharp.Core\BulkSharp.Core.csproj" />
     <ProjectReference Include="..\..\src\BulkSharp.Processing\BulkSharp.Processing.csproj" />
     <ProjectReference Include="..\..\src\BulkSharp.Data.EntityFramework\BulkSharp.Data.EntityFramework.csproj" />

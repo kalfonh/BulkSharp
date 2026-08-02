@@ -27,7 +27,8 @@
     <InternalsVisibleTo Include="BulkSharp" />
     <InternalsVisibleTo Include="BulkSharp.UnitTests" />
     <InternalsVisibleTo Include="BulkSharp.IntegrationTests" />
-    <InternalsVisibleTo Include="BulkSharp.E2ETests" />
+    <InternalsVisibleTo Include="BulkSharp.Api" />
+    <InternalsVisibleTo Include="BulkSharp.Api.Tests" />
     <InternalsVisibleTo Include="BulkSharp.Dashboard" />
     <InternalsVisibleTo Include="BulkSharp.Dashboard.Tests" />
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />

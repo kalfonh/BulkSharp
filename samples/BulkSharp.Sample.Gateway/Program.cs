@@ -16,22 +16,14 @@ builder.Services.AddBulkSharpGateway(gw => gw
         opts.RegistryRefreshInterval = TimeSpan.FromMinutes(1);
     }));
 
-// Add Dashboard UI services (Blazor Server, Razor Pages) — but NOT the Dashboard API endpoints
+// Add Dashboard UI services (Blazor Server, Razor Pages)
 builder.Services.AddBulkSharpDashboard();
 
 var app = builder.Build();
 app.MapDefaultEndpoints();
 
-// Serve static files and configure routing
-app.UseStaticFiles();
-app.UseRouting();
-
-// Map gateway API endpoints (replaces Dashboard's API endpoints with aggregated versions)
+// The gateway supplies the aggregated API across backends; the dashboard supplies UI only.
 app.UseBulkSharpGateway();
-
-// Map Blazor UI (without Dashboard API — the gateway endpoints above provide the API)
-app.MapRazorPages();
-app.MapBlazorHub();
-app.MapFallbackToPage("/_Host");
+app.UseBulkSharpDashboardUi();
 
 app.Run();
