@@ -3,7 +3,6 @@ using BulkSharp.Gateway.Registry;
 using BulkSharp.Gateway.Services;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
-using System.Text.Json;
 
 namespace BulkSharp.Gateway.Routing;
 
@@ -52,37 +51,28 @@ public sealed class GatewayRouter
             {
                 using var response = await client.GetBulkAsync(operationId, ct);
                 if (response.IsSuccessStatusCode)
-                {
-                    var json = await response.Content.ReadAsStringAsync(ct);
-                    var doc = JsonDocument.Parse(json);
-                    if (doc.RootElement.TryGetProperty("source", out var sourceProp))
-                    {
-                        var source = sourceProp.GetString();
-                        if (!string.IsNullOrEmpty(source))
-                        {
-                            _sourceCache.Set($"op:{operationId}", source, CacheOptions);
-                            return (Client: client, Found: true, Source: source);
-                        }
-                    }
-                    // Source not set - use the backend that returned 200
-                    _sourceCache.Set($"op:{operationId}", client.ServiceName, CacheOptions);
-                    return (Client: client, Found: true, Source: client.ServiceName);
-                }
+                    return (Client: client, Found: true);
             }
             catch (Exception ex)
             {
                 _logger.RouterFanOutFailed(ex, client.ServiceName, operationId);
             }
-            return (Client: client, Found: false, Source: (string?)null);
+            return (Client: client, Found: false);
         });
 
         var results = await Task.WhenAll(tasks);
         var winner = results.FirstOrDefault(r => r.Found);
 
-        if (winner.Found && winner.Source != null)
-            return _clientFactory.GetClient(winner.Source);
+        if (!winner.Found)
+            return null;
 
-        return null;
+        // Route by the backend that actually answered, never by the Source value it
+        // reports. Source is the backend's own BulkSharpOptions.ServiceName, which need
+        // not match the name this gateway was configured with in AddBackend(). Resolving
+        // an unconfigured name produces an HttpClient with no BaseAddress, and every
+        // subsequent request for this operation throws.
+        _sourceCache.Set($"op:{operationId}", winner.Client.ServiceName, CacheOptions);
+        return winner.Client;
     }
 
     public void CacheSource(Guid operationId, string serviceName)

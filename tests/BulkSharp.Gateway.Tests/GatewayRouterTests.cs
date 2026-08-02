@@ -99,6 +99,41 @@ public class GatewayRouterTests : IDisposable
         cached.Should().Be("service-b");
     }
 
+    /// <summary>
+    /// A backend's self-reported Source is its own BulkSharpOptions.ServiceName, which need
+    /// not equal the name the gateway was configured with in AddBackend(). Routing must follow
+    /// the client that actually answered, not the reported string — resolving an unconfigured
+    /// name yields an HttpClient with no BaseAddress and every routed request then throws.
+    /// </summary>
+    [Fact]
+    public async Task RouteBySourceServiceAsync_SourceDiffersFromConfiguredName_RoutesToAnsweringBackend()
+    {
+        var opId = Guid.NewGuid();
+        var configured = CreateMockClient("webapp");
+
+        var responseBody = JsonSerializer.Serialize(new { id = opId, source = "production-service" });
+        configured.Setup(c => c.GetBulkAsync(opId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(responseBody)
+            });
+
+        _clientFactory.Setup(f => f.GetAllClients()).Returns(new[] { configured.Object });
+
+        var result = await _sut.RouteBySourceServiceAsync(opId);
+
+        result.Should().NotBeNull();
+        result!.ServiceName.Should().Be("webapp");
+
+        // The cache must hold the configured backend name, or every later lookup
+        // resolves an unregistered client.
+        _cache.TryGetValue($"op:{opId}", out string? cached).Should().BeTrue();
+        cached.Should().Be("webapp");
+
+        // The unconfigured name must never be resolved.
+        _clientFactory.Verify(f => f.GetClient("production-service"), Times.Never);
+    }
+
     [Fact]
     public async Task RouteBySourceServiceAsync_AllBackendsFail_ReturnsNull()
     {
