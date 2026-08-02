@@ -1,3 +1,4 @@
+using BulkSharp.Core.Contracts;
 using BulkSharp.Gateway.Routing;
 using BulkSharp.Gateway.Services;
 using Microsoft.AspNetCore.Builder;
@@ -167,13 +168,12 @@ public static class BulkSharpGatewayWebApplicationExtensions
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync(ct);
-                var doc = System.Text.Json.JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("operationId", out var idProp) ||
-                    doc.RootElement.TryGetProperty("OperationId", out idProp))
-                {
-                    if (Guid.TryParse(idProp.GetString(), out var newId))
-                        router.CacheSource(newId, client.ServiceName);
-                }
+                var created = System.Text.Json.JsonSerializer.Deserialize<CreateOperationResponse>(
+                    json, BulkSharpJsonSerialization.Options);
+
+                if (created is not null && created.OperationId != Guid.Empty)
+                    router.CacheSource(created.OperationId, client.ServiceName);
+
                 return Results.Content(json, "application/json", statusCode: (int)response.StatusCode);
             }
 
