@@ -58,10 +58,15 @@ public class GatewayAggregatorTests : IDisposable
 
         result.Should().HaveCount(2);
 
-        // Verify sourceService tagging
-        var names = result.Select(e => e.GetProperty("name").GetString()).ToList();
+        var names = result.Select(op => op.Name).ToList();
         names.Should().Contain("import-users");
         names.Should().Contain("import-orders");
+
+        // Each descriptor is tagged with the backend that owns it.
+        result.Should().ContainSingle(op => op.Name == "import-users")
+            .Which.SourceService.Should().Be("service-a");
+        result.Should().ContainSingle(op => op.Name == "import-orders")
+            .Which.SourceService.Should().Be("service-b");
     }
 
     [Fact]

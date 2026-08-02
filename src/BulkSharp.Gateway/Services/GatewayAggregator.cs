@@ -1,3 +1,4 @@
+using BulkSharp.Core.Contracts;
 using BulkSharp.Gateway.Logging;
 using BulkSharp.Gateway.Routing;
 using Microsoft.Extensions.Logging;
@@ -8,43 +9,34 @@ namespace BulkSharp.Gateway.Services;
 
 public sealed class GatewayAggregator(GatewayRouter router, ILogger<GatewayAggregator> logger)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions JsonOptions = BulkSharpJsonSerialization.Options;
 
-    public async Task<List<JsonElement>> AggregateDiscoveryAsync(CancellationToken ct)
+    public async Task<List<OperationDescriptorDto>> AggregateDiscoveryAsync(CancellationToken ct)
     {
         var clients = router.GetAllClients().ToList();
-        List<JsonElement> allOperations = [];
 
         var tasks = clients.Select(async client =>
         {
             try
             {
                 using var response = await client.GetOperationsAsync(ct);
-                if (!response.IsSuccessStatusCode) return [];
+                if (!response.IsSuccessStatusCode) return new List<OperationDescriptorDto>();
 
                 var json = await response.Content.ReadAsStringAsync(ct);
-                var ops = JsonSerializer.Deserialize<List<JsonElement>>(json, JsonOptions) ?? new();
+                var ops = JsonSerializer.Deserialize<List<OperationDescriptorDto>>(json, JsonOptions) ?? [];
 
-                // Tag each with sourceService
-                return ops.Select(op =>
-                {
-                    var dict = JsonSerializer.Deserialize<Dictionary<string, object>>(op.GetRawText(), JsonOptions) ?? new();
-                    dict["sourceService"] = client.ServiceName;
-                    return JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(dict, JsonOptions));
-                }).ToList();
+                // Tag each operation with the backend that owns it so clients can route.
+                return ops.Select(op => op with { SourceService = client.ServiceName }).ToList();
             }
             catch (Exception ex)
             {
                 logger.AggregateDiscoveryFailed(ex, client.ServiceName);
-                return [];
+                return new List<OperationDescriptorDto>();
             }
         });
 
         var results = await Task.WhenAll(tasks);
-        foreach (var batch in results)
-            allOperations.AddRange(batch);
-
-        return allOperations;
+        return results.SelectMany(batch => batch).ToList();
     }
 
     public async Task<object> AggregateListAsync(string queryString, CancellationToken ct)
@@ -96,23 +88,23 @@ public sealed class GatewayAggregator(GatewayRouter router, ILogger<GatewayAggre
                 var root = doc.RootElement;
 
                 List<JsonElement> items = [];
-                if (root.TryGetProperty("items", out var itemsProp) || root.TryGetProperty("Items", out itemsProp))
+                if (root.TryGetProperty("items", out var itemsProp))
                 {
                     foreach (var item in itemsProp.EnumerateArray())
                     {
                         items.Add(item);
 
                         // Cache Source for routing
-                        if (item.TryGetProperty("id", out var idProp) || item.TryGetProperty("Id", out idProp))
+                        if (item.TryGetProperty("id", out var idProp)
+                            && Guid.TryParse(idProp.GetString(), out var opId))
                         {
-                            if (Guid.TryParse(idProp.GetString(), out var opId))
-                                router.CacheSource(opId, client.ServiceName);
+                            router.CacheSource(opId, client.ServiceName);
                         }
                     }
                 }
 
                 var total = 0;
-                if (root.TryGetProperty("totalCount", out var totalProp) || root.TryGetProperty("TotalCount", out totalProp))
+                if (root.TryGetProperty("totalCount", out var totalProp))
                     total = totalProp.GetInt32();
 
                 return (Items: items, Total: total);
@@ -132,8 +124,8 @@ public sealed class GatewayAggregator(GatewayRouter router, ILogger<GatewayAggre
         // Re-sort by CreatedAt descending (approximate merge)
         allItems.Sort((a, b) =>
         {
-            var aDate = GetDateProperty(a, "createdAt") ?? GetDateProperty(a, "CreatedAt");
-            var bDate = GetDateProperty(b, "createdAt") ?? GetDateProperty(b, "CreatedAt");
+            var aDate = GetDateProperty(a, "createdAt");
+            var bDate = GetDateProperty(b, "createdAt");
             return (bDate ?? DateTime.MinValue).CompareTo(aDate ?? DateTime.MinValue);
         });
 

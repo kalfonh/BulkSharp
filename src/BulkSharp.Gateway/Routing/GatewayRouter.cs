@@ -55,8 +55,7 @@ public sealed class GatewayRouter
                 {
                     var json = await response.Content.ReadAsStringAsync(ct);
                     var doc = JsonDocument.Parse(json);
-                    if (doc.RootElement.TryGetProperty("source", out var sourceProp) ||
-                        doc.RootElement.TryGetProperty("Source", out sourceProp))
+                    if (doc.RootElement.TryGetProperty("source", out var sourceProp))
                     {
                         var source = sourceProp.GetString();
                         if (!string.IsNullOrEmpty(source))
