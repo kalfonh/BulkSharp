@@ -219,6 +219,51 @@ public class ApiTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Validate_WithUnknownOperation_ReturnsTypedValidationResponse()
+    {
+        using var content = new MultipartFormDataContent
+        {
+            { new StringContent("does-not-exist"), "operationName" }
+        };
+
+        var response = await _client.PostAsync("/api/bulks/validate", content);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<ValidationResponse>(
+            BulkSharpJsonSerialization.Options);
+
+        Assert.NotNull(result);
+        Assert.False(result.Valid);
+        Assert.NotNull(result.MetadataErrors);
+        Assert.NotNull(result.FileErrors);
+    }
+
+    [Fact]
+    public async Task CreateBulk_ReturnsCamelCaseOperationId()
+    {
+        var csv = "Email Address,DisplayName\nuser@example.com,User\n";
+        using var content = new MultipartFormDataContent
+        {
+            { new StringContent("probe-operation"), "operationName" },
+            { new StringContent("creator"), "createdBy" },
+            { new StringContent("{\"AccountId\":\"acct-1\"}"), "metadata" }
+        };
+        content.Add(new StringContent(csv), "file", "rows.csv");
+
+        var response = await _client.PostAsync("/api/bulks", content);
+        response.EnsureSuccessStatusCode();
+
+        var raw = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"operationId\":", raw);
+        Assert.DoesNotContain("\"OperationId\":", raw);
+
+        var created = await response.Content.ReadFromJsonAsync<CreateOperationResponse>(
+            BulkSharpJsonSerialization.Options);
+        Assert.NotNull(created);
+        Assert.NotEqual(Guid.Empty, created.OperationId);
+    }
+
+    [Fact]
     public async Task Api_SerializesEnumsAsStrings()
     {
         using var scope = _app.Services.CreateScope();
