@@ -310,17 +310,13 @@
             var createResponse = await Http.PostAsync("api/bulks", content);
             if (createResponse.IsSuccessStatusCode)
             {
-                var json = await createResponse.Content.ReadAsStringAsync();
-                var doc = System.Text.Json.JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("operationId", out var idProp) ||
-                    doc.RootElement.TryGetProperty("OperationId", out idProp))
+                var created = await createResponse.Content.ReadFromBulkSharpJsonAsync<CreateOperationResponse>();
+                toastService.Show("Success", $"Operation '{operationName}' started", ToastLevel.Success);
+                if (created is not null)
                 {
-                    var opId = idProp.GetString();
-                    toastService.Show("Success", $"Operation '{operationName}' started", ToastLevel.Success);
-                    Navigation.NavigateTo($"/bulk/{opId}");
+                    Navigation.NavigateTo($"/bulk/{created.OperationId}");
                     return;
                 }
-                toastService.Show("Success", $"Operation '{operationName}' started", ToastLevel.Success);
             }
             else
             {

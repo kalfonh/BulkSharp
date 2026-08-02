@@ -336,12 +336,14 @@ public static class WebApplicationExtensions
 
             // Try in-process signal first (same-process scenario)
             if (signalService.TrySignal(record.SignalKey!))
-                return Results.Ok(new { completed = true, rowNumber = record.RowNumber, step = record.StepName });
+                return Results.Ok(new SignalResponse(
+                    record.RowNumber, record.StepName, Completed: true, Failed: false, Error: null, CrossProcess: false));
 
             // Cross-process: write completion to DB. Worker will pick it up via polling.
             record.MarkCompleted();
             await recordRepo.UpdateAsync(record, cancellationToken);
-            return Results.Ok(new { completed = true, rowNumber = record.RowNumber, step = record.StepName, crossProcess = true });
+            return Results.Ok(new SignalResponse(
+                record.RowNumber, record.StepName, Completed: true, Failed: false, Error: null, CrossProcess: true));
         });
         if (authorizationPolicy != null) signalEndpoint.RequireAuthorization(authorizationPolicy);
 
@@ -373,12 +375,14 @@ public static class WebApplicationExtensions
 
             // Try in-process signal first (same-process scenario)
             if (signalService.TrySignalFailure(record.SignalKey!, errorMessage))
-                return Results.Ok(new { failed = true, rowNumber = record.RowNumber, step = record.StepName, error = errorMessage });
+                return Results.Ok(new SignalResponse(
+                    record.RowNumber, record.StepName, Completed: false, Failed: true, errorMessage, CrossProcess: false));
 
             // Cross-process: write failure to DB. Worker will pick it up via polling.
             record.MarkFailed(errorMessage, BulkErrorType.SignalFailure);
             await recordRepo.UpdateAsync(record, cancellationToken);
-            return Results.Ok(new { failed = true, rowNumber = record.RowNumber, step = record.StepName, error = errorMessage, crossProcess = true });
+            return Results.Ok(new SignalResponse(
+                record.RowNumber, record.StepName, Completed: false, Failed: true, errorMessage, CrossProcess: true));
         });
         if (authorizationPolicy != null) signalFailEndpoint.RequireAuthorization(authorizationPolicy);
 
@@ -406,8 +410,8 @@ public static class WebApplicationExtensions
                 operationName, metadataJson, stream, fileName, cancellationToken);
 
             return result.IsValid
-                ? Results.Ok(new { valid = true })
-                : Results.Ok(new { valid = false, result.MetadataErrors, result.FileErrors });
+                ? Results.Ok(new ValidationResponse(true, [], []))
+                : Results.Ok(new ValidationResponse(false, result.MetadataErrors, result.FileErrors));
         });
 
         app.MapGet("/api/bulks/{id:guid}/file", async (
@@ -481,7 +485,7 @@ public static class WebApplicationExtensions
                 var operationId = await operationService.CreateBulkOperationAsync(
                     operationName, stream, file.FileName, metadataJson ?? "{}", createdBy, notifications, cancellationToken);
 
-                return Results.Ok(new { OperationId = operationId });
+                return Results.Ok(new CreateOperationResponse(operationId));
             }
             catch (ArgumentException ex)
             {
