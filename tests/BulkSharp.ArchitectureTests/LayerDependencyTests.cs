@@ -13,6 +13,7 @@ public class LayerDependencyTests
 {
     private static readonly System.Reflection.Assembly CoreAssembly = typeof(BulkOperation).Assembly;
     private static readonly System.Reflection.Assembly ProcessingAssembly = typeof(ChannelsSchedulerOptions).Assembly;
+    private static readonly System.Reflection.Assembly ApiAssembly = typeof(BulkSharp.Api.WebApplicationExtensions).Assembly;
 
     [Fact]
     public void Core_ShouldNotReference_Processing()
@@ -60,6 +61,48 @@ public class LayerDependencyTests
 
         Assert.True(result.IsSuccessful,
             $"Core references Dashboard: {FormatFailing(result)}");
+    }
+
+    [Fact]
+    public void Core_ShouldNotReference_Api()
+    {
+        var result = Types.InAssembly(CoreAssembly)
+            .ShouldNot()
+            .HaveDependencyOn("BulkSharp.Api")
+            .GetResult();
+
+        Assert.True(result.IsSuccessful,
+            $"Core references Api: {FormatFailing(result)}");
+    }
+
+    /// <summary>
+    /// The whole point of extracting BulkSharp.Api is that a host can expose the HTTP API
+    /// without taking a Razor or Blazor dependency. A single stray using in this assembly
+    /// silently reintroduces it, and nobody notices until an adopter complains about
+    /// package size. This test is the guard.
+    /// </summary>
+    [Fact]
+    public void Api_ShouldNotReference_Dashboard()
+    {
+        var result = Types.InAssembly(ApiAssembly)
+            .ShouldNot()
+            .HaveDependencyOn("BulkSharp.Dashboard")
+            .GetResult();
+
+        Assert.True(result.IsSuccessful,
+            $"Api references Dashboard, defeating the headless split: {FormatFailing(result)}");
+    }
+
+    [Fact]
+    public void Api_ShouldNotReference_Blazor()
+    {
+        var result = Types.InAssembly(ApiAssembly)
+            .ShouldNot()
+            .HaveDependencyOn("Microsoft.AspNetCore.Components")
+            .GetResult();
+
+        Assert.True(result.IsSuccessful,
+            $"Api references Blazor components: {FormatFailing(result)}");
     }
 
     [Fact]

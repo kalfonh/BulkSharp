@@ -1,11 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk.Razor">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
-    <PackageId>BulkSharp.Dashboard</PackageId>
-    <Description>Blazor dashboard for BulkSharp bulk operations monitoring and management.</Description>
-    <PackageTags>bulk;operations;dashboard;blazor;monitoring</PackageTags>
+    <PackageId>BulkSharp.Api</PackageId>
+    <Description>HTTP API endpoints for BulkSharp bulk operations, with no UI dependency. Reference this instead of BulkSharp.Dashboard to build a dashboard in any technology stack.</Description>
+    <PackageTags>bulk;operations;api;minimal-api;http;headless</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
@@ -18,7 +17,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\BulkSharp.Api\BulkSharp.Api.csproj" />
     <ProjectReference Include="..\BulkSharp.Core\BulkSharp.Core.csproj" />
     <ProjectReference Include="..\BulkSharp.Processing\BulkSharp.Processing.csproj" />
   </ItemGroup>

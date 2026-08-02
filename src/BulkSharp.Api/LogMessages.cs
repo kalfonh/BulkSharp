@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace BulkSharp.Dashboard;
+namespace BulkSharp.Api;
 
 internal static partial class LogMessages
 {

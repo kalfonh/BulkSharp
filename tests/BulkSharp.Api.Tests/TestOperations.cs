@@ -3,7 +3,7 @@ using BulkSharp.Core.Abstractions.Operations;
 using BulkSharp.Core.Attributes;
 using BulkSharp.Core.Domain.Processing;
 
-namespace BulkSharp.Dashboard.Tests;
+namespace BulkSharp.Api.Tests;
 
 /// <summary>
 /// Metadata for <see cref="ProbeOperation"/>, exercising a required field, an optional

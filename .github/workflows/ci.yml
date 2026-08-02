@@ -26,10 +26,12 @@ jobs:
           dotnet restore src/BulkSharp.Core/BulkSharp.Core.csproj
           dotnet restore src/BulkSharp.Processing/BulkSharp.Processing.csproj
           dotnet restore src/BulkSharp/BulkSharp.csproj
+          dotnet restore src/BulkSharp.Api/BulkSharp.Api.csproj
           dotnet restore src/BulkSharp.Dashboard/BulkSharp.Dashboard.csproj
           dotnet restore src/BulkSharp.Data.EntityFramework/BulkSharp.Data.EntityFramework.csproj
           dotnet restore src/BulkSharp.Files.S3/BulkSharp.Files.S3.csproj
           dotnet restore src/BulkSharp.Gateway/BulkSharp.Gateway.csproj
+          dotnet restore tests/BulkSharp.Api.Tests/BulkSharp.Api.Tests.csproj
           dotnet restore tests/BulkSharp.UnitTests/BulkSharp.UnitTests.csproj
           dotnet restore tests/BulkSharp.IntegrationTests/BulkSharp.IntegrationTests.csproj
           dotnet restore tests/BulkSharp.ArchitectureTests/BulkSharp.ArchitectureTests.csproj
@@ -44,10 +46,12 @@ jobs:
       - name: Build
         run: |
           dotnet build src/BulkSharp/BulkSharp.csproj -c Release --no-restore
+          dotnet build src/BulkSharp.Api/BulkSharp.Api.csproj -c Release --no-restore
           dotnet build src/BulkSharp.Dashboard/BulkSharp.Dashboard.csproj -c Release --no-restore
           dotnet build src/BulkSharp.Data.EntityFramework/BulkSharp.Data.EntityFramework.csproj -c Release --no-restore
           dotnet build src/BulkSharp.Files.S3/BulkSharp.Files.S3.csproj -c Release --no-restore
           dotnet build src/BulkSharp.Gateway/BulkSharp.Gateway.csproj -c Release --no-restore
+          dotnet build tests/BulkSharp.Api.Tests/BulkSharp.Api.Tests.csproj -c Release --no-restore
           dotnet build tests/BulkSharp.UnitTests/BulkSharp.UnitTests.csproj -c Release --no-restore
           dotnet build tests/BulkSharp.IntegrationTests/BulkSharp.IntegrationTests.csproj -c Release --no-restore
           dotnet build tests/BulkSharp.ArchitectureTests/BulkSharp.ArchitectureTests.csproj -c Release --no-restore
@@ -61,6 +65,7 @@ jobs:
 
       - name: Test
         run: |
+          dotnet test tests/BulkSharp.Api.Tests -c Release --no-build
           dotnet test tests/BulkSharp.UnitTests -c Release --no-build
           dotnet test tests/BulkSharp.IntegrationTests -c Release --no-build
           dotnet test tests/BulkSharp.ArchitectureTests -c Release --no-build
@@ -83,6 +88,7 @@ jobs:
           dotnet restore src/BulkSharp.Core/BulkSharp.Core.csproj
           dotnet restore src/BulkSharp.Processing/BulkSharp.Processing.csproj
           dotnet restore src/BulkSharp/BulkSharp.csproj
+          dotnet restore src/BulkSharp.Api/BulkSharp.Api.csproj
           dotnet restore src/BulkSharp.Dashboard/BulkSharp.Dashboard.csproj
           dotnet restore src/BulkSharp.Data.EntityFramework/BulkSharp.Data.EntityFramework.csproj
           dotnet restore src/BulkSharp.Files.S3/BulkSharp.Files.S3.csproj
@@ -91,6 +97,7 @@ jobs:
       - name: Build library projects
         run: |
           dotnet build src/BulkSharp/BulkSharp.csproj -c Release --no-restore
+          dotnet build src/BulkSharp.Api/BulkSharp.Api.csproj -c Release --no-restore
           dotnet build src/BulkSharp.Dashboard/BulkSharp.Dashboard.csproj -c Release --no-restore
           dotnet build src/BulkSharp.Data.EntityFramework/BulkSharp.Data.EntityFramework.csproj -c Release --no-restore
           dotnet build src/BulkSharp.Files.S3/BulkSharp.Files.S3.csproj -c Release --no-restore
@@ -105,6 +112,7 @@ jobs:
           for proj in src/BulkSharp/BulkSharp.csproj \
                       src/BulkSharp.Core/BulkSharp.Core.csproj \
                       src/BulkSharp.Processing/BulkSharp.Processing.csproj \
+                      src/BulkSharp.Api/BulkSharp.Api.csproj \
                       src/BulkSharp.Dashboard/BulkSharp.Dashboard.csproj \
                       src/BulkSharp.Data.EntityFramework/BulkSharp.Data.EntityFramework.csproj \
                       src/BulkSharp.Files.S3/BulkSharp.Files.S3.csproj \

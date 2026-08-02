@@ -12,7 +12,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Xunit;
 
-namespace BulkSharp.Dashboard.Tests;
+namespace BulkSharp.Api.Tests;
 
 [Trait("Category", "Integration")]
 public class ApiTests : IAsyncLifetime
@@ -30,10 +30,10 @@ public class ApiTests : IAsyncLifetime
              .UseMetadataStorage(ms => ms.UseInMemory())
              .UseScheduler(s => s.UseImmediate());
         });
-        builder.Services.AddBulkSharpDashboard();
+        builder.Services.AddBulkSharpEndpoints();
 
         _app = builder.Build();
-        _app.UseBulkSharpDashboard();
+        _app.MapBulkSharpEndpoints();
 
         await _app.StartAsync();
         _client = _app.GetTestClient();

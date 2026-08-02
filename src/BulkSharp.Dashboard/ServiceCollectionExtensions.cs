@@ -18,11 +18,9 @@ public static class ServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddBulkSharpDashboard(this IServiceCollection services)
     {
-        // Pin the HTTP response contract. Generated API clients depend on camelCase
-        // property names and string-valued enums; without this, enums serialize as
-        // integers and every client needs a hand-maintained lookup table.
-        services.ConfigureHttpJsonOptions(options =>
-            BulkSharpJsonSerialization.Configure(options.SerializerOptions));
+        // The dashboard consumes the BulkSharp API over HTTP, so it needs the same
+        // JSON contract its clients do.
+        services.AddBulkSharpEndpoints();
 
         // Configure antiforgery for Blazor Server
         services.AddAntiforgery(options =>
