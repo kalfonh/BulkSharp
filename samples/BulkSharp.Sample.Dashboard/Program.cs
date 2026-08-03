@@ -1,3 +1,4 @@
+using BulkSharp.Api;
 using BulkSharp.Dashboard;
 using BulkSharp.Sample.Dashboard.Services;
 
@@ -14,6 +15,13 @@ builder.Services.AddBulkSharpDashboard();
 builder.Services.AddHostedService<DemoSignalService>();
 
 var app = builder.Build();
+
+// Serve the OpenAPI document outside production so a front end in any technology
+// stack can be generated from it. See docs/guides/building-a-custom-dashboard.md.
+if (app.Environment.IsDevelopment())
+{
+    app.MapBulkSharpOpenApi();
+}
 
 app.UseBulkSharpDashboard();
 

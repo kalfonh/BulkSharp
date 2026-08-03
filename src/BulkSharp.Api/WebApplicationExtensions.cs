@@ -26,6 +26,22 @@ namespace BulkSharp.Api;
 public static class WebApplicationExtensions
 {
     /// <summary>
+    /// Serves the OpenAPI document describing the BulkSharp API at
+    /// <c>/openapi/v1.json</c>, for generating clients in any technology stack.
+    /// </summary>
+    /// <remarks>
+    /// Hosts typically map this outside production. The route matches the .NET 9
+    /// built-in OpenAPI convention so the underlying generator can be swapped later
+    /// without breaking client-generation pipelines.
+    /// </remarks>
+    /// <param name="app">The web application.</param>
+    public static WebApplication MapBulkSharpOpenApi(this WebApplication app)
+    {
+        app.UseSwagger(options => options.RouteTemplate = "openapi/{documentName}.json");
+        return app;
+    }
+
+    /// <summary>
     /// Maps the BulkSharp API endpoints. Call <c>AddBulkSharpEndpoints()</c> during service
     /// registration so responses use the BulkSharp JSON contract.
     /// </summary>
@@ -61,7 +77,10 @@ public static class WebApplicationExtensions
                         GetFriendlyTypeName(p.PropertyType),
                         p.GetCustomAttribute<CsvColumnAttribute>()?.Required ?? false))
                     .ToList() ?? []
-            }).ToList());
+            }).ToList())
+            .WithName("getOperations")
+            .WithSummary("Lists registered operations with their metadata fields and file columns.")
+            .Produces<IReadOnlyList<OperationDescriptorDto>>();
 
         app.MapGet("/api/operations/{name}/template", (
             string name,
@@ -84,7 +103,11 @@ public static class WebApplicationExtensions
             var csv = string.Join(",", columns) + "\n";
             var bytes = System.Text.Encoding.UTF8.GetBytes(csv);
             return Results.File(bytes, "text/csv", $"{name}-template.csv");
-        });
+        })
+            .WithName("getOperationTemplate")
+            .WithSummary("Downloads a CSV template with the operation's expected header row.")
+            .Produces(StatusCodes.Status200OK, contentType: "text/csv")
+            .Produces(StatusCodes.Status404NotFound);
 
         app.MapGet("/api/bulks", async (
             [FromServices] IBulkOperationService service,
@@ -113,7 +136,10 @@ public static class WebApplicationExtensions
                 SortDescending = sortDescending
             };
             return await service.QueryBulkOperationsAsync(query, cancellationToken);
-        });
+        })
+            .WithName("getBulks")
+            .WithSummary("Queries bulk operations with filtering, sorting and paging.")
+            .Produces<PagedResult<BulkOperation>>();
 
         app.MapGet("/api/bulks/{id}", async (
             Guid id,
@@ -122,7 +148,11 @@ public static class WebApplicationExtensions
         {
             var bulk = await service.GetBulkOperationAsync(id, cancellationToken);
             return bulk is not null ? Results.Ok(bulk) : Results.NotFound();
-        });
+        })
+            .WithName("getBulk")
+            .WithSummary("Returns a single bulk operation.")
+            .Produces<BulkOperation>()
+            .Produces(StatusCodes.Status404NotFound);
 
         app.MapGet("/api/bulks/{id}/errors", async (
             Guid id,
@@ -172,7 +202,10 @@ public static class WebApplicationExtensions
                 Page = result.Page,
                 PageSize = result.PageSize
             });
-        });
+        })
+            .WithName("getBulkErrors")
+            .WithSummary("Returns the failed rows of an operation, paged and filterable.")
+            .Produces<PagedResult<RowErrorDto>>();
 
         app.MapGet("/api/bulks/{id}/status", async (
             Guid id,
@@ -190,7 +223,11 @@ public static class WebApplicationExtensions
                 bulk.ErrorCount,
                 bulk.CompletedAt,
                 bulk.TotalRows > 0 ? bulk.ProcessedRows * 100.0 / bulk.TotalRows : 0));
-        });
+        })
+            .WithName("getBulkStatus")
+            .WithSummary("Returns a lightweight progress snapshot, suitable for polling.")
+            .Produces<BulkStatusDto>()
+            .Produces(StatusCodes.Status404NotFound);
 
         var cancelEndpoint = app.MapPost("/api/bulks/{id}/cancel", async (
             Guid id,
@@ -199,7 +236,10 @@ public static class WebApplicationExtensions
         {
             await service.CancelBulkOperationAsync(id, cancellationToken);
             return Results.Ok();
-        });
+        })
+            .WithName("cancelBulk")
+            .WithSummary("Cancels a pending or running operation.")
+            .Produces(StatusCodes.Status200OK);
         if (authorizationPolicy != null) cancelEndpoint.RequireAuthorization(authorizationPolicy);
 
         app.MapGet("/api/bulks/{id:guid}/rows", async (
@@ -313,7 +353,10 @@ public static class WebApplicationExtensions
                 Page = rowNumbersPage.Page,
                 PageSize = rowNumbersPage.PageSize
             });
-        });
+        })
+            .WithName("getBulkRows")
+            .WithSummary("Returns per-row pipeline progress with per-step detail, paged.")
+            .Produces<PagedResult<RowProgressDto>>();
 
         var signalEndpoint = app.MapPost("/api/bulks/{id:guid}/signal/{key}", async (
             Guid id,
@@ -346,7 +389,11 @@ public static class WebApplicationExtensions
             await recordRepo.UpdateAsync(record, cancellationToken);
             return Results.Ok(new SignalResponse(
                 record.RowNumber, record.StepName, Completed: true, Failed: false, Error: null, CrossProcess: true));
-        });
+        })
+            .WithName("signalStep")
+            .WithSummary("Completes a pipeline step that is waiting on an external signal.")
+            .Produces<SignalResponse>()
+            .Produces(StatusCodes.Status404NotFound);
         if (authorizationPolicy != null) signalEndpoint.RequireAuthorization(authorizationPolicy);
 
         var signalFailEndpoint = app.MapPost("/api/bulks/{id:guid}/signal/{key}/fail", async (
@@ -385,7 +432,11 @@ public static class WebApplicationExtensions
             await recordRepo.UpdateAsync(record, cancellationToken);
             return Results.Ok(new SignalResponse(
                 record.RowNumber, record.StepName, Completed: false, Failed: true, errorMessage, CrossProcess: true));
-        });
+        })
+            .WithName("failStep")
+            .WithSummary("Fails a pipeline step that is waiting on an external signal.")
+            .Produces<SignalResponse>()
+            .Produces(StatusCodes.Status404NotFound);
         if (authorizationPolicy != null) signalFailEndpoint.RequireAuthorization(authorizationPolicy);
 
         app.MapPost("/api/bulks/validate", async (
@@ -414,7 +465,11 @@ public static class WebApplicationExtensions
             return result.IsValid
                 ? Results.Ok(new ValidationResponse(true, [], []))
                 : Results.Ok(new ValidationResponse(false, result.MetadataErrors, result.FileErrors));
-        });
+        })
+            .WithName("validateBulk")
+            .WithSummary("Validates a submission without creating an operation. Required pre-flight for generated forms, because operations may enforce rules the discovery descriptor cannot express.")
+            .Produces<ValidationResponse>()
+            .Produces(StatusCodes.Status400BadRequest);
 
         app.MapGet("/api/bulks/{id:guid}/file", async (
             Guid id,
@@ -432,7 +487,11 @@ public static class WebApplicationExtensions
 
             var stream = await storageProvider.RetrieveFileAsync(operation.FileId, cancellationToken).ConfigureAwait(false);
             return Results.File(stream, fileInfo.ContentType, operation.FileName);
-        });
+        })
+            .WithName("getBulkFile")
+            .WithSummary("Downloads the source file the operation was created from.")
+            .Produces(StatusCodes.Status200OK, contentType: "application/octet-stream")
+            .Produces(StatusCodes.Status404NotFound);
 
         var createEndpoint = app.MapPost("/api/bulks", async (
             HttpRequest request,
@@ -495,11 +554,16 @@ public static class WebApplicationExtensions
             }
             catch (Exception ex)
             {
-                var logger = loggerFactory.CreateLogger("BulkSharp.Dashboard.Api");
+                var logger = loggerFactory.CreateLogger("BulkSharp.Api");
                 logger.CreateOperationFailed(ex, operationName);
                 return Results.StatusCode(500);
             }
-        });
+        })
+            .WithName("createBulk")
+            .WithSummary("Creates a bulk operation from an uploaded file.")
+            .Produces<CreateOperationResponse>()
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status500InternalServerError);
         if (authorizationPolicy != null) createEndpoint.RequireAuthorization(authorizationPolicy);
 
         // ── Retry endpoints ────────────────────────────────────────────
@@ -518,7 +582,11 @@ public static class WebApplicationExtensions
             {
                 return Results.BadRequest(new { error = ex.Message });
             }
-        });
+        })
+            .WithName("retryBulk")
+            .WithSummary("Retries every failed row of an operation.")
+            .Produces<RetrySubmission>()
+            .Produces(StatusCodes.Status400BadRequest);
         if (authorizationPolicy != null) retryAllEndpoint.RequireAuthorization(authorizationPolicy);
 
         var retryRowsEndpoint = app.MapPost("/api/bulks/{id:guid}/retry/rows", async (
@@ -537,7 +605,11 @@ public static class WebApplicationExtensions
             {
                 return Results.BadRequest(new { error = ex.Message });
             }
-        });
+        })
+            .WithName("retryBulkRows")
+            .WithSummary("Retries a specific set of failed rows.")
+            .Produces<RetrySubmission>()
+            .Produces(StatusCodes.Status400BadRequest);
         if (authorizationPolicy != null) retryRowsEndpoint.RequireAuthorization(authorizationPolicy);
 
         app.MapGet("/api/bulks/{id:guid}/retry/eligibility", async (
@@ -547,7 +619,10 @@ public static class WebApplicationExtensions
         {
             var result = await service.CanRetryAsync(id, cancellationToken);
             return Results.Ok(result);
-        });
+        })
+            .WithName("getRetryEligibility")
+            .WithSummary("Reports whether an operation can be retried, and why not when it cannot.")
+            .Produces<RetryEligibility>();
 
         app.MapGet("/api/bulks/{id:guid}/retry/history", async (
             Guid id,
@@ -566,7 +641,10 @@ public static class WebApplicationExtensions
                 PageSize = pageSize
             }, cancellationToken);
             return Results.Ok(result);
-        });
+        })
+            .WithName("getRetryHistory")
+            .WithSummary("Returns the retry attempts recorded for an operation, paged.")
+            .Produces<PagedResult<BulkRowRetryHistory>>();
 
         // ── Export endpoint ────────────────────────────────────────────
 
@@ -608,7 +686,11 @@ public static class WebApplicationExtensions
             {
                 return Results.BadRequest(new { error = ex.Message });
             }
-        });
+        })
+            .WithName("exportBulk")
+            .WithSummary("Exports a report, the failed rows, or the row detail of an operation.")
+            .Produces(StatusCodes.Status200OK, contentType: "application/octet-stream")
+            .Produces(StatusCodes.Status400BadRequest);
 
         return app;
     }
