@@ -9,7 +9,6 @@ public interface IBackendClient
     Task<HttpResponseMessage> GetBulkAsync(Guid id, CancellationToken ct = default);
     Task<HttpResponseMessage> GetBulkErrorsAsync(Guid id, string queryString, CancellationToken ct = default);
     Task<HttpResponseMessage> GetBulkRowsAsync(Guid id, string queryString, CancellationToken ct = default);
-    Task<HttpResponseMessage> GetBulkRowItemsAsync(Guid id, string queryString, CancellationToken ct = default);
     Task<HttpResponseMessage> GetBulkStatusAsync(Guid id, CancellationToken ct = default);
     Task<HttpResponseMessage> GetBulkFileAsync(Guid id, CancellationToken ct = default);
     Task<HttpResponseMessage> PostBulkAsync(HttpContent content, string contentType, CancellationToken ct = default);
