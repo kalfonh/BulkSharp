@@ -15,5 +15,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\BulkSharp.Gateway\BulkSharp.Gateway.csproj" />
+    <!-- Referenced so the gateway's route surface can be compared against the API's.
+         The gateway must expose the same contract; see ContractConformanceTests. -->
+    <ProjectReference Include="..\..\src\BulkSharp.Api\BulkSharp.Api.csproj" />
+    <ProjectReference Include="..\..\src\BulkSharp\BulkSharp.csproj" />
   </ItemGroup>
 </Project>

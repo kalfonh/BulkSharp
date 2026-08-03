@@ -24,9 +24,6 @@ internal sealed class BackendClient(HttpClient http, string serviceName) : IBack
     public Task<HttpResponseMessage> GetBulkRowsAsync(Guid id, string queryString, CancellationToken ct = default)
         => http.GetAsync($"api/bulks/{id}/rows{queryString}", ct);
 
-    public Task<HttpResponseMessage> GetBulkRowItemsAsync(Guid id, string queryString, CancellationToken ct = default)
-        => http.GetAsync($"api/bulks/{id}/row-items{queryString}", ct);
-
     public Task<HttpResponseMessage> GetBulkStatusAsync(Guid id, CancellationToken ct = default)
         => http.GetAsync($"api/bulks/{id}/status", ct);
 
