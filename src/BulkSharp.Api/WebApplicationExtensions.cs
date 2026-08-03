@@ -495,7 +495,9 @@ public static class WebApplicationExtensions
 
         var createEndpoint = app.MapPost(BulkSharpRoutes.Bulks, async (
             HttpRequest request,
+            HttpContext context,
             [FromServices] IBulkOperationService operationService,
+            [FromServices] IBulkUserResolver userResolver,
             [FromServices] ILoggerFactory loggerFactory,
             CancellationToken cancellationToken) =>
         {
@@ -505,7 +507,11 @@ public static class WebApplicationExtensions
             var form = await request.ReadFormAsync(cancellationToken);
             var file = form.Files.GetFile("file");
             var operationName = form["operationName"].ToString();
-            var createdBy = form["createdBy"].ToString();
+
+            // Attribution comes from the authenticated principal when there is one. The
+            // form value is only honoured for anonymous self-hosting; otherwise any caller
+            // could attribute an operation to any user and the audit trail would be fiction.
+            var createdBy = userResolver.ResolveUser(context.User) ?? form["createdBy"].ToString();
             var metadataJson = form["metadata"].ToString();
             var notificationsJson = form["notifications"].ToString();
 
