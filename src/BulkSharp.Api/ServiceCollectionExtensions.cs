@@ -1,5 +1,6 @@
 using BulkSharp.Api;
 using BulkSharp.Core.Contracts;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.OpenApi.Models;
 
 namespace Microsoft.Extensions.DependencyInjection;
@@ -21,6 +22,9 @@ public static class BulkSharpEndpointsServiceCollectionExtensions
     {
         services.ConfigureHttpJsonOptions(options =>
             BulkSharpJsonSerialization.Configure(options.SerializerOptions));
+
+        // TryAdd so a host can substitute its own resolver without ordering constraints.
+        services.TryAddSingleton<IBulkUserResolver, ClaimsBulkUserResolver>();
 
         // Describe the endpoints so clients in any technology stack can be generated
         // from the document rather than hand-written against the docs.
