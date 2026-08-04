@@ -41,6 +41,16 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient();
         services.AddSingleton<ToastService>();
 
+        // Blazor Server has no ambient base address, so resolve it from the current
+        // request. The dashboard then talks to the API exactly as an external client does.
+        services.AddHttpContextAccessor();
+        services.AddHttpClient<BulkSharpApiClient>((provider, client) =>
+        {
+            var request = provider.GetRequiredService<IHttpContextAccessor>().HttpContext?.Request;
+            if (request is not null)
+                client.BaseAddress = new Uri($"{request.Scheme}://{request.Host}{request.PathBase}/");
+        });
+
         return services;
     }
 }
