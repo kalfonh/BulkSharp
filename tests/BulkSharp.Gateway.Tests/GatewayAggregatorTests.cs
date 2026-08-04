@@ -1,3 +1,5 @@
+using BulkSharp.Core.Contracts;
+using BulkSharp.Gateway.Configuration;
 using BulkSharp.Gateway.Registry;
 using BulkSharp.Gateway.Routing;
 using BulkSharp.Gateway.Services;
@@ -26,6 +28,7 @@ public class GatewayAggregatorTests : IDisposable
 
         _sut = new GatewayAggregator(
             router,
+            new BulkSharpGatewayOptions(),
             NullLogger<GatewayAggregator>.Instance);
     }
 
@@ -67,6 +70,99 @@ public class GatewayAggregatorTests : IDisposable
             .Which.SourceService.Should().Be("service-a");
         result.Should().ContainSingle(op => op.Name == "import-orders")
             .Which.SourceService.Should().Be("service-b");
+    }
+
+    /// <summary>
+    /// Forwarding the caller's page/pageSize to each backend only ever surfaces
+    /// pageSize x backendCount rows, so page 2 of a merged ordering was not the true
+    /// second page. Invisible with one backend, wrong with two.
+    /// </summary>
+    [Fact]
+    public async Task AggregateListAsync_SecondPage_ReturnsTrueSecondPageOfMergedOrder()
+    {
+        var clientA = CreateMockClient("service-a");
+        var clientB = CreateMockClient("service-b");
+
+        // Interleaved across backends: a(05) b(04) a(03) b(02)
+        var listA = JsonSerializer.Serialize(new
+        {
+            items = new[]
+            {
+                new { id = Guid.NewGuid(), createdAt = "2026-03-17T05:00:00Z" },
+                new { id = Guid.NewGuid(), createdAt = "2026-03-17T03:00:00Z" }
+            },
+            totalCount = 2
+        });
+        var listB = JsonSerializer.Serialize(new
+        {
+            items = new[]
+            {
+                new { id = Guid.NewGuid(), createdAt = "2026-03-17T04:00:00Z" },
+                new { id = Guid.NewGuid(), createdAt = "2026-03-17T02:00:00Z" }
+            },
+            totalCount = 2
+        });
+
+        clientA.Setup(c => c.GetBulksAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(listA) });
+        clientB.Setup(c => c.GetBulksAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(listB) });
+
+        _clientFactory.Setup(f => f.GetAllClients()).Returns(new[] { clientA.Object, clientB.Object });
+
+        var json = JsonSerializer.Serialize(
+            await _sut.AggregateListAsync("?page=2&pageSize=2", CancellationToken.None),
+            BulkSharpJsonSerialization.Options);
+
+        using var doc = JsonDocument.Parse(json);
+        var items = doc.RootElement.GetProperty("items").EnumerateArray().ToList();
+
+        // Merged order is 05, 04, 03, 02 — page 2 of size 2 must be 03 then 02.
+        items.Should().HaveCount(2);
+        items[0].GetProperty("createdAt").GetString().Should().Be("2026-03-17T03:00:00Z");
+        items[1].GetProperty("createdAt").GetString().Should().Be("2026-03-17T02:00:00Z");
+    }
+
+    [Fact]
+    public async Task AggregateListAsync_OverFetchesFromEachBackend()
+    {
+        var clientA = CreateMockClient("service-a");
+        var captured = new List<string>();
+
+        clientA.Setup(c => c.GetBulksAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CancellationToken>((qs, _) => captured.Add(qs))
+            .ReturnsAsync(() => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"items\":[],\"totalCount\":0}")
+            });
+
+        _clientFactory.Setup(f => f.GetAllClients()).Returns(new[] { clientA.Object });
+
+        await _sut.AggregateListAsync("?page=3&pageSize=20", CancellationToken.None);
+
+        captured.Should().ContainSingle()
+            .Which.Should().Contain("page=1").And.Contain("pageSize=60");
+    }
+
+    [Fact]
+    public async Task AggregateListAsync_PreservesCallerFiltersWhenOverFetching()
+    {
+        var clientA = CreateMockClient("service-a");
+        var captured = new List<string>();
+
+        clientA.Setup(c => c.GetBulksAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback<string, CancellationToken>((qs, _) => captured.Add(qs))
+            .ReturnsAsync(() => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"items\":[],\"totalCount\":0}")
+            });
+
+        _clientFactory.Setup(f => f.GetAllClients()).Returns(new[] { clientA.Object });
+
+        await _sut.AggregateListAsync("?page=1&pageSize=10&status=Running&createdBy=alice", CancellationToken.None);
+
+        captured.Should().ContainSingle()
+            .Which.Should().Contain("status=Running").And.Contain("createdBy=alice");
     }
 
     [Fact]
