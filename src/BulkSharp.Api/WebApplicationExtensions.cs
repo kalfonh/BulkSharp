@@ -10,6 +10,7 @@ using BulkSharp.Core.Domain.Operations;
 using BulkSharp.Core.Domain.Queries;
 using BulkSharp.Core.Domain.Retry;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -42,19 +43,52 @@ public static class WebApplicationExtensions
     }
 
     /// <summary>
-    /// Maps the BulkSharp API endpoints. Call <c>AddBulkSharpEndpoints()</c> during service
-    /// registration so responses use the BulkSharp JSON contract.
+    /// Maps the BulkSharp API endpoints with a single policy applied to reads and writes alike.
     /// </summary>
     /// <param name="app">The web application.</param>
     /// <param name="authorizationPolicy">
-    /// Optional authorization policy name applied to mutating endpoints (create, cancel, signal, retry).
-    /// When null, no authorization is enforced — the host application must configure its own middleware.
+    /// Policy applied to every endpoint. When null, no authorization is enforced and the
+    /// host application must configure its own middleware.
     /// </param>
     public static WebApplication MapBulkSharpEndpoints(
         this WebApplication app,
         string? authorizationPolicy = null)
+        => app.MapBulkSharpEndpoints(new BulkSharpAuthorizationOptions { ReadPolicy = authorizationPolicy });
+
+    /// <summary>
+    /// Maps the BulkSharp API endpoints. Call <c>AddBulkSharpEndpoints()</c> during service
+    /// registration so responses use the BulkSharp JSON contract.
+    /// </summary>
+    /// <param name="app">The web application.</param>
+    /// <param name="authorization">
+    /// Policies applied to read and mutating endpoints. When null, no authorization is
+    /// enforced — the host application must configure its own middleware.
+    /// </param>
+    public static WebApplication MapBulkSharpEndpoints(
+        this WebApplication app,
+        BulkSharpAuthorizationOptions? authorization)
     {
-        app.MapGet(BulkSharpRoutes.Operations, (IBulkOperationDiscovery discovery) =>
+        // Two groups so viewers and operators can be governed separately. Reads are
+        // customer data and must be authorized too — the earlier behaviour left every
+        // GET open while only guarding mutations.
+        var readGroup = app.MapGroup(string.Empty);
+        var operateGroup = app.MapGroup(string.Empty);
+
+        if (authorization?.ReadPolicy is { } readPolicy)
+            readGroup.RequireAuthorization(readPolicy);
+
+        if (authorization?.EffectiveOperatePolicy is { } operatePolicy)
+            operateGroup.RequireAuthorization(operatePolicy);
+
+        return app.MapBulkSharpEndpointsCore(readGroup, operateGroup);
+    }
+
+    private static WebApplication MapBulkSharpEndpointsCore(
+        this WebApplication app,
+        RouteGroupBuilder readGroup,
+        RouteGroupBuilder operateGroup)
+    {
+        readGroup.MapGet(BulkSharpRoutes.Operations, (IBulkOperationDiscovery discovery) =>
             discovery.DiscoverOperations().Select(op => new OperationDescriptorDto
             {
                 Name = op.Name,
@@ -82,7 +116,7 @@ public static class WebApplicationExtensions
             .WithSummary("Lists registered operations with their metadata fields and file columns.")
             .Produces<IReadOnlyList<OperationDescriptorDto>>();
 
-        app.MapGet(BulkSharpRoutes.OperationTemplate, (
+        readGroup.MapGet(BulkSharpRoutes.OperationTemplate, (
             string name,
             IBulkOperationDiscovery discovery) =>
         {
@@ -109,7 +143,7 @@ public static class WebApplicationExtensions
             .Produces(StatusCodes.Status200OK, contentType: "text/csv")
             .Produces(StatusCodes.Status404NotFound);
 
-        app.MapGet(BulkSharpRoutes.Bulks, async (
+        readGroup.MapGet(BulkSharpRoutes.Bulks, async (
             [FromServices] IBulkOperationService service,
             [FromQuery] string? operationName,
             [FromQuery] string? createdBy,
@@ -141,7 +175,7 @@ public static class WebApplicationExtensions
             .WithSummary("Queries bulk operations with filtering, sorting and paging.")
             .Produces<PagedResult<BulkOperation>>();
 
-        app.MapGet(BulkSharpRoutes.Bulk, async (
+        readGroup.MapGet(BulkSharpRoutes.Bulk, async (
             Guid id,
             [FromServices] IBulkOperationService service,
             CancellationToken cancellationToken) =>
@@ -154,7 +188,7 @@ public static class WebApplicationExtensions
             .Produces<BulkOperation>()
             .Produces(StatusCodes.Status404NotFound);
 
-        app.MapGet(BulkSharpRoutes.BulkErrors, async (
+        readGroup.MapGet(BulkSharpRoutes.BulkErrors, async (
             Guid id,
             IBulkRowRecordRepository rowRecordRepo,
             [FromQuery] int? rowNumber,
@@ -207,7 +241,7 @@ public static class WebApplicationExtensions
             .WithSummary("Returns the failed rows of an operation, paged and filterable.")
             .Produces<PagedResult<RowErrorDto>>();
 
-        app.MapGet(BulkSharpRoutes.BulkStatus, async (
+        readGroup.MapGet(BulkSharpRoutes.BulkStatus, async (
             Guid id,
             [FromServices] IBulkOperationService service,
             CancellationToken cancellationToken) =>
@@ -229,7 +263,7 @@ public static class WebApplicationExtensions
             .Produces<BulkStatusDto>()
             .Produces(StatusCodes.Status404NotFound);
 
-        var cancelEndpoint = app.MapPost(BulkSharpRoutes.BulkCancel, async (
+        var cancelEndpoint = operateGroup.MapPost(BulkSharpRoutes.BulkCancel, async (
             Guid id,
             [FromServices] IBulkOperationService service,
             CancellationToken cancellationToken) =>
@@ -240,9 +274,8 @@ public static class WebApplicationExtensions
             .WithName("cancelBulk")
             .WithSummary("Cancels a pending or running operation.")
             .Produces(StatusCodes.Status200OK);
-        if (authorizationPolicy != null) cancelEndpoint.RequireAuthorization(authorizationPolicy);
 
-        app.MapGet(BulkSharpRoutes.BulkRows, async (
+        readGroup.MapGet(BulkSharpRoutes.BulkRows, async (
             Guid id,
             IBulkRowRecordRepository repo,
             [FromQuery] string? rowId,
@@ -358,7 +391,7 @@ public static class WebApplicationExtensions
             .WithSummary("Returns per-row pipeline progress with per-step detail, paged.")
             .Produces<PagedResult<RowProgressDto>>();
 
-        var signalEndpoint = app.MapPost(BulkSharpRoutes.BulkSignal, async (
+        var signalEndpoint = operateGroup.MapPost(BulkSharpRoutes.BulkSignal, async (
             Guid id,
             string key,
             [FromServices] IBulkRowRecordRepository recordRepo,
@@ -394,9 +427,8 @@ public static class WebApplicationExtensions
             .WithSummary("Completes a pipeline step that is waiting on an external signal.")
             .Produces<SignalResponse>()
             .Produces(StatusCodes.Status404NotFound);
-        if (authorizationPolicy != null) signalEndpoint.RequireAuthorization(authorizationPolicy);
 
-        var signalFailEndpoint = app.MapPost(BulkSharpRoutes.BulkSignalFail, async (
+        var signalFailEndpoint = operateGroup.MapPost(BulkSharpRoutes.BulkSignalFail, async (
             Guid id,
             string key,
             [FromBody] SignalFailureRequest request,
@@ -437,9 +469,8 @@ public static class WebApplicationExtensions
             .WithSummary("Fails a pipeline step that is waiting on an external signal.")
             .Produces<SignalResponse>()
             .Produces(StatusCodes.Status404NotFound);
-        if (authorizationPolicy != null) signalFailEndpoint.RequireAuthorization(authorizationPolicy);
 
-        app.MapPost(BulkSharpRoutes.BulksValidate, async (
+        operateGroup.MapPost(BulkSharpRoutes.BulksValidate, async (
             HttpRequest request,
             [FromServices] IBulkOperationService service,
             [FromServices] IOptions<BulkSharpOptions> options,
@@ -471,7 +502,7 @@ public static class WebApplicationExtensions
             .Produces<ValidationResponse>()
             .Produces(StatusCodes.Status400BadRequest);
 
-        app.MapGet(BulkSharpRoutes.BulkFile, async (
+        readGroup.MapGet(BulkSharpRoutes.BulkFile, async (
             Guid id,
             [FromServices] IBulkOperationService operationService,
             [FromServices] IManagedStorageProvider storageProvider,
@@ -493,7 +524,7 @@ public static class WebApplicationExtensions
             .Produces(StatusCodes.Status200OK, contentType: "application/octet-stream")
             .Produces(StatusCodes.Status404NotFound);
 
-        var createEndpoint = app.MapPost(BulkSharpRoutes.Bulks, async (
+        var createEndpoint = operateGroup.MapPost(BulkSharpRoutes.Bulks, async (
             HttpRequest request,
             HttpContext context,
             [FromServices] IBulkOperationService operationService,
@@ -570,11 +601,10 @@ public static class WebApplicationExtensions
             .Produces<CreateOperationResponse>()
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status500InternalServerError);
-        if (authorizationPolicy != null) createEndpoint.RequireAuthorization(authorizationPolicy);
 
-        // â”€â”€ Retry endpoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ---- Retry endpoints ----------------------------------------
 
-        var retryAllEndpoint = app.MapPost(BulkSharpRoutes.BulkRetry, async (
+        var retryAllEndpoint = operateGroup.MapPost(BulkSharpRoutes.BulkRetry, async (
             Guid id,
             [FromServices] IBulkOperationService service,
             CancellationToken cancellationToken) =>
@@ -593,9 +623,8 @@ public static class WebApplicationExtensions
             .WithSummary("Retries every failed row of an operation.")
             .Produces<RetrySubmission>()
             .Produces(StatusCodes.Status400BadRequest);
-        if (authorizationPolicy != null) retryAllEndpoint.RequireAuthorization(authorizationPolicy);
 
-        var retryRowsEndpoint = app.MapPost(BulkSharpRoutes.BulkRetryRows, async (
+        var retryRowsEndpoint = operateGroup.MapPost(BulkSharpRoutes.BulkRetryRows, async (
             Guid id,
             [FromBody] RetryRowsRequest request,
             [FromServices] IBulkOperationService service,
@@ -616,9 +645,8 @@ public static class WebApplicationExtensions
             .WithSummary("Retries a specific set of failed rows.")
             .Produces<RetrySubmission>()
             .Produces(StatusCodes.Status400BadRequest);
-        if (authorizationPolicy != null) retryRowsEndpoint.RequireAuthorization(authorizationPolicy);
 
-        app.MapGet(BulkSharpRoutes.BulkRetryEligibility, async (
+        readGroup.MapGet(BulkSharpRoutes.BulkRetryEligibility, async (
             Guid id,
             [FromServices] IBulkOperationService service,
             CancellationToken cancellationToken) =>
@@ -630,7 +658,7 @@ public static class WebApplicationExtensions
             .WithSummary("Reports whether an operation can be retried, and why not when it cannot.")
             .Produces<RetryEligibility>();
 
-        app.MapGet(BulkSharpRoutes.BulkRetryHistory, async (
+        readGroup.MapGet(BulkSharpRoutes.BulkRetryHistory, async (
             Guid id,
             [FromServices] IBulkOperationService service,
             [FromQuery] int? rowNumber,
@@ -652,9 +680,9 @@ public static class WebApplicationExtensions
             .WithSummary("Returns the retry attempts recorded for an operation, paged.")
             .Produces<PagedResult<BulkRowRetryHistory>>();
 
-        // â”€â”€ Export endpoint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ---- Export endpoint ----------------------------------------
 
-        app.MapGet(BulkSharpRoutes.BulkExport, async (
+        readGroup.MapGet(BulkSharpRoutes.BulkExport, async (
             Guid id,
             [FromServices] IBulkOperationService service,
             [FromQuery] string mode = "report",

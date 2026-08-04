@@ -3,18 +3,58 @@ using BulkSharp.Gateway.Routing;
 using BulkSharp.Gateway.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BulkSharp.Gateway;
 
 public static class BulkSharpGatewayWebApplicationExtensions
 {
+    /// <summary>
+    /// Maps the aggregated gateway endpoints with a single policy applied to reads and
+    /// writes alike.
+    /// </summary>
+    /// <param name="app">The web application.</param>
+    /// <param name="authorizationPolicy">
+    /// Policy applied to every endpoint. When null, no authorization is enforced.
+    /// </param>
     public static WebApplication UseBulkSharpGateway(
         this WebApplication app,
         string? authorizationPolicy = null)
+        => app.UseBulkSharpGateway(new BulkSharpAuthorizationOptions { ReadPolicy = authorizationPolicy });
+
+    /// <summary>
+    /// Maps the aggregated gateway endpoints. The route surface is identical to
+    /// <c>BulkSharp.Api</c>; see ContractConformanceTests.
+    /// </summary>
+    /// <param name="app">The web application.</param>
+    /// <param name="authorization">
+    /// Policies applied to read and mutating endpoints. When null, no authorization is
+    /// enforced and the host application must configure its own middleware.
+    /// </param>
+    public static WebApplication UseBulkSharpGateway(
+        this WebApplication app,
+        BulkSharpAuthorizationOptions? authorization)
+    {
+        var readGroup = app.MapGroup(string.Empty);
+        var operateGroup = app.MapGroup(string.Empty);
+
+        if (authorization?.ReadPolicy is { } readPolicy)
+            readGroup.RequireAuthorization(readPolicy);
+
+        if (authorization?.EffectiveOperatePolicy is { } operatePolicy)
+            operateGroup.RequireAuthorization(operatePolicy);
+
+        return app.MapGatewayEndpoints(readGroup, operateGroup);
+    }
+
+    private static WebApplication MapGatewayEndpoints(
+        this WebApplication app,
+        RouteGroupBuilder readGroup,
+        RouteGroupBuilder operateGroup)
     {
         // GET /api/operations - aggregated discovery
-        app.MapGet(BulkSharpRoutes.Operations, async (
+        readGroup.MapGet(BulkSharpRoutes.Operations, async (
             GatewayAggregator aggregator,
             CancellationToken ct) =>
         {
@@ -23,7 +63,7 @@ public static class BulkSharpGatewayWebApplicationExtensions
         });
 
         // GET /api/operations/{name}/template - route by operation name
-        app.MapGet(BulkSharpRoutes.OperationTemplate, async (
+        readGroup.MapGet(BulkSharpRoutes.OperationTemplate, async (
             string name,
             GatewayRouter router,
             CancellationToken ct) =>
@@ -41,7 +81,7 @@ public static class BulkSharpGatewayWebApplicationExtensions
         });
 
         // GET /api/bulks - aggregated list
-        app.MapGet(BulkSharpRoutes.Bulks, async (
+        readGroup.MapGet(BulkSharpRoutes.Bulks, async (
             HttpRequest request,
             GatewayAggregator aggregator,
             CancellationToken ct) =>
@@ -52,7 +92,7 @@ public static class BulkSharpGatewayWebApplicationExtensions
         });
 
         // GET /api/bulks/{id} - route by SourceService
-        app.MapGet(BulkSharpRoutes.Bulk, async (
+        readGroup.MapGet(BulkSharpRoutes.Bulk, async (
             Guid id,
             GatewayRouter router,
             CancellationToken ct) =>
@@ -65,7 +105,7 @@ public static class BulkSharpGatewayWebApplicationExtensions
         });
 
         // GET /api/bulks/{id}/errors
-        app.MapGet(BulkSharpRoutes.BulkErrors, async (
+        readGroup.MapGet(BulkSharpRoutes.BulkErrors, async (
             Guid id,
             HttpRequest request,
             GatewayRouter router,
@@ -79,7 +119,7 @@ public static class BulkSharpGatewayWebApplicationExtensions
         });
 
         // GET /api/bulks/{id}/rows
-        app.MapGet(BulkSharpRoutes.BulkRows, async (
+        readGroup.MapGet(BulkSharpRoutes.BulkRows, async (
             Guid id,
             HttpRequest request,
             GatewayRouter router,
@@ -93,7 +133,7 @@ public static class BulkSharpGatewayWebApplicationExtensions
         });
 
         // GET /api/bulks/{id}/status
-        app.MapGet(BulkSharpRoutes.BulkStatus, async (
+        readGroup.MapGet(BulkSharpRoutes.BulkStatus, async (
             Guid id,
             GatewayRouter router,
             CancellationToken ct) =>
@@ -106,7 +146,7 @@ public static class BulkSharpGatewayWebApplicationExtensions
         });
 
         // GET /api/bulks/{id}/file - streamed, no buffering
-        app.MapGet(BulkSharpRoutes.BulkFile, async (
+        readGroup.MapGet(BulkSharpRoutes.BulkFile, async (
             Guid id,
             GatewayRouter router,
             CancellationToken ct) =>
@@ -128,7 +168,7 @@ public static class BulkSharpGatewayWebApplicationExtensions
         });
 
         // POST /api/bulks - create, route by operationName
-        var createEndpoint = app.MapPost(BulkSharpRoutes.Bulks, async (
+        var createEndpoint = operateGroup.MapPost(BulkSharpRoutes.Bulks, async (
             HttpRequest request,
             GatewayRouter router,
             CancellationToken ct) =>
@@ -165,10 +205,9 @@ public static class BulkSharpGatewayWebApplicationExtensions
 
             return Results.StatusCode((int)response.StatusCode);
         });
-        if (authorizationPolicy != null) createEndpoint.RequireAuthorization(authorizationPolicy);
 
         // POST /api/bulks/validate - route by operationName
-        app.MapPost(BulkSharpRoutes.BulksValidate, async (
+        operateGroup.MapPost(BulkSharpRoutes.BulksValidate, async (
             HttpRequest request,
             GatewayRouter router,
             CancellationToken ct) =>
@@ -193,7 +232,7 @@ public static class BulkSharpGatewayWebApplicationExtensions
         });
 
         // POST /api/bulks/{id}/cancel
-        var cancelEndpoint = app.MapPost(BulkSharpRoutes.BulkCancel, async (
+        var cancelEndpoint = operateGroup.MapPost(BulkSharpRoutes.BulkCancel, async (
             Guid id,
             GatewayRouter router,
             CancellationToken ct) =>
@@ -204,10 +243,9 @@ public static class BulkSharpGatewayWebApplicationExtensions
             using var response = await client.PostCancelAsync(id, ct);
             return await ProxyResponseAsync(response, ct);
         });
-        if (authorizationPolicy != null) cancelEndpoint.RequireAuthorization(authorizationPolicy);
 
         // POST /api/bulks/{id}/signal/{key}
-        var signalEndpoint = app.MapPost(BulkSharpRoutes.BulkSignal, async (
+        var signalEndpoint = operateGroup.MapPost(BulkSharpRoutes.BulkSignal, async (
             Guid id,
             string key,
             GatewayRouter router,
@@ -219,10 +257,9 @@ public static class BulkSharpGatewayWebApplicationExtensions
             using var response = await client.PostSignalAsync(id, key, ct);
             return await ProxyResponseAsync(response, ct);
         });
-        if (authorizationPolicy != null) signalEndpoint.RequireAuthorization(authorizationPolicy);
 
         // POST /api/bulks/{id}/signal/{key}/fail
-        var signalFailEndpoint = app.MapPost(BulkSharpRoutes.BulkSignalFail, async (
+        var signalFailEndpoint = operateGroup.MapPost(BulkSharpRoutes.BulkSignalFail, async (
             Guid id,
             string key,
             HttpRequest request,
@@ -238,10 +275,9 @@ public static class BulkSharpGatewayWebApplicationExtensions
             using var response = await client.PostSignalFailAsync(id, key, httpContent, ct);
             return await ProxyResponseAsync(response, ct);
         });
-        if (authorizationPolicy != null) signalFailEndpoint.RequireAuthorization(authorizationPolicy);
 
         // POST /api/bulks/{id}/retry - retry all failed rows
-        var retryEndpoint = app.MapPost(BulkSharpRoutes.BulkRetry, async (
+        var retryEndpoint = operateGroup.MapPost(BulkSharpRoutes.BulkRetry, async (
             Guid id,
             GatewayRouter router,
             CancellationToken ct) =>
@@ -252,10 +288,9 @@ public static class BulkSharpGatewayWebApplicationExtensions
             using var response = await client.PostRetryAsync(id, ct);
             return await ProxyResponseAsync(response, ct);
         });
-        if (authorizationPolicy != null) retryEndpoint.RequireAuthorization(authorizationPolicy);
 
         // POST /api/bulks/{id}/retry/rows - retry specific rows
-        var retryRowsEndpoint = app.MapPost(BulkSharpRoutes.BulkRetryRows, async (
+        var retryRowsEndpoint = operateGroup.MapPost(BulkSharpRoutes.BulkRetryRows, async (
             Guid id,
             HttpRequest request,
             GatewayRouter router,
@@ -270,10 +305,9 @@ public static class BulkSharpGatewayWebApplicationExtensions
             using var response = await client.PostRetryRowsAsync(id, httpContent, ct);
             return await ProxyResponseAsync(response, ct);
         });
-        if (authorizationPolicy != null) retryRowsEndpoint.RequireAuthorization(authorizationPolicy);
 
         // GET /api/bulks/{id}/retry/eligibility
-        app.MapGet(BulkSharpRoutes.BulkRetryEligibility, async (
+        readGroup.MapGet(BulkSharpRoutes.BulkRetryEligibility, async (
             Guid id,
             GatewayRouter router,
             CancellationToken ct) =>
@@ -286,7 +320,7 @@ public static class BulkSharpGatewayWebApplicationExtensions
         });
 
         // GET /api/bulks/{id}/retry/history
-        app.MapGet(BulkSharpRoutes.BulkRetryHistory, async (
+        readGroup.MapGet(BulkSharpRoutes.BulkRetryHistory, async (
             Guid id,
             HttpRequest request,
             GatewayRouter router,
@@ -300,7 +334,7 @@ public static class BulkSharpGatewayWebApplicationExtensions
         });
 
         // GET /api/bulks/{id}/export - streamed file download
-        app.MapGet(BulkSharpRoutes.BulkExport, async (
+        readGroup.MapGet(BulkSharpRoutes.BulkExport, async (
             Guid id,
             HttpRequest request,
             GatewayRouter router,

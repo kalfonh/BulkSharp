@@ -52,12 +52,26 @@ app.MapBulkSharpEndpoints();
 
 ## Authorization
 
-`MapBulkSharpEndpoints` accepts a policy name applied to the endpoints it maps. The host
-owns authentication and the policy definition; BulkSharp only knows the policy's name.
+The host owns authentication and the policy definitions; BulkSharp only knows the policy
+names. Reads and writes are governed separately, so viewers can be prevented from
+submitting, cancelling or retrying:
 
 ```csharp
-app.MapBulkSharpEndpoints(authorizationPolicy: "bulk:read");
+app.MapBulkSharpEndpoints(new BulkSharpAuthorizationOptions
+{
+    ReadPolicy    = "bulk:read",     // list, detail, status, errors, rows, export, download
+    OperatePolicy = "bulk:operate"   // create, validate, cancel, retry, signal
+});
 ```
+
+`OperatePolicy` falls back to `ReadPolicy` when omitted. A single policy for everything:
+
+```csharp
+app.MapBulkSharpEndpoints(authorizationPolicy: "bulk:access");
+```
+
+Passing nothing leaves the endpoints unauthorized — appropriate only for a host that
+enforces authorization in its own middleware, or for local self-hosting.
 
 Attribution of an operation's creator comes from the authenticated principal via
 `IBulkUserResolver`. Register your own implementation to change how the identity is
