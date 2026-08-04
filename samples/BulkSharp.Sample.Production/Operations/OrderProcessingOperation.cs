@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using System.Collections.Concurrent;
 using BulkSharp.Core.Abstractions.Operations;
 using BulkSharp.Core.Abstractions.Processing;
@@ -141,6 +142,7 @@ internal class OrderProcessingCustomerNotificationStep : IBulkStep<OrderProcessi
 
 public class OrderProcessingMetadata : IBulkMetadata
 {
+    [Required]
     public string WarehouseId { get; set; } = string.Empty;
     public string PaymentProvider { get; set; } = "stripe";
     public DateTime ProcessingDate { get; set; } = DateTime.UtcNow;

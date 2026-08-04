@@ -122,6 +122,38 @@ public class ApiTests : IAsyncLifetime
         Assert.False(batchSize.Required);
     }
 
+    /// <summary>
+    /// The descriptor is what a client generates its submission form from. A field the
+    /// operation rejects must not be advertised as optional, or every generated form
+    /// produces submissions the backend refuses.
+    /// </summary>
+    [Fact]
+    public async Task GetOperations_ReportsRequiredness_ThatMatchesActualValidation()
+    {
+        var descriptors = await _client.GetFromJsonAsync<List<OperationDescriptorDto>>(
+            "/api/operations", BulkSharpJsonSerialization.Options);
+
+        var probe = Assert.Single(descriptors!, d => d.Name == "probe-operation");
+        var accountId = Assert.Single(probe.MetadataFields, f => f.Name == nameof(ProbeMetadata.AccountId));
+        Assert.True(accountId.Required, "AccountId is enforced by the operation but advertised as optional.");
+
+        // Prove the advertised requiredness is real: omitting it must be rejected.
+        using var content = new MultipartFormDataContent
+        {
+            { new StringContent("probe-operation"), "operationName" },
+            { new StringContent("{}"), "metadata" }
+        };
+        content.Add(new StringContent("Email Address,DisplayName\na@b.com,A\n"), "file", "rows.csv");
+
+        var response = await _client.PostAsync("/api/bulks/validate", content);
+        response.EnsureSuccessStatusCode();
+
+        var validation = await response.Content.ReadFromJsonAsync<ValidationResponse>(
+            BulkSharpJsonSerialization.Options);
+
+        Assert.False(validation!.Valid);
+    }
+
     [Fact]
     public async Task GetOperations_DescribesFileColumnsUsingCsvColumnNames()
     {
