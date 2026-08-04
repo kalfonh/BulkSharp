@@ -300,6 +300,28 @@
 
             var templateBytes = await templateResponse.Content.ReadAsByteArrayAsync();
 
+            // Quick-run submits empty metadata, which any operation with required fields
+            // will reject. Validate first and send the operator to the full form rather
+            // than creating an operation that is guaranteed to fail.
+            using var validateContent = new MultipartFormDataContent();
+            validateContent.Add(new StringContent(operationName), "operationName");
+            validateContent.Add(new StringContent("{}"), "metadata");
+            validateContent.Add(new ByteArrayContent(templateBytes), "file", "template.csv");
+
+            var validateResponse = await Http.PostAsync("api/bulks/validate", validateContent);
+            if (validateResponse.IsSuccessStatusCode)
+            {
+                var validation = await validateResponse.Content.ReadFromBulkSharpJsonAsync<ValidationResponse>();
+                if (validation is { Valid: false })
+                {
+                    var reason = validation.MetadataErrors.Concat(validation.FileErrors).FirstOrDefault()
+                                 ?? "This operation needs metadata.";
+                    toastService.Show(operationName, $"{reason} Opening the full form.", ToastLevel.Info);
+                    Navigation.NavigateTo($"/create?operation={Uri.EscapeDataString(operationName)}");
+                    return;
+                }
+            }
+
             // Create operation with template file
             using var content = new MultipartFormDataContent();
             content.Add(new StringContent(operationName), "operationName");

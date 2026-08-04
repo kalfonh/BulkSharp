@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using BulkSharp.Core.Abstractions.Operations;
 using BulkSharp.Core.Abstractions.Storage;
 using BulkSharp.Core.Abstractions.Processing;
@@ -40,6 +41,7 @@ public class SampleUserImportOperation : IBulkRowOperation<UserImportMetadata, U
 
 public class UserImportMetadata : IBulkMetadata
 {
+    [Required]
     public string ImportedBy { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
     public bool SendWelcomeEmail { get; set; } = true;

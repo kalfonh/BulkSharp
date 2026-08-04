@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using BulkSharp.Core.Abstractions.Operations;
 using BulkSharp.Core.Abstractions.Storage;
 using BulkSharp.Core.Abstractions.Processing;
@@ -78,7 +79,9 @@ public class InventoryUpdateOperation : IBulkRowOperation<InventoryUpdateMetadat
 
 public class InventoryUpdateMetadata : IBulkMetadata
 {
+    [Required]
     public string ApprovedBy { get; set; } = string.Empty;
+    [Required]
     public string AdjustmentBatchId { get; set; } = string.Empty;
     public bool DryRun { get; set; } = false;
 }

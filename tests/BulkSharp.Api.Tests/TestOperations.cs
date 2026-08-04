@@ -43,7 +43,15 @@ public sealed class ProbeOperation : IBulkRowOperation<ProbeMetadata, ProbeRow>
 {
     /// <inheritdoc />
     public Task ValidateMetadataAsync(ProbeMetadata metadata, CancellationToken cancellationToken = default)
-        => Task.CompletedTask;
+    {
+        // Mirrors the [Required] annotation on ProbeMetadata.AccountId. The descriptor
+        // reports requiredness from attributes only, so a field enforced solely here
+        // would be advertised to clients as optional and then rejected at submission.
+        if (string.IsNullOrWhiteSpace(metadata.AccountId))
+            throw new ArgumentException("AccountId is required", nameof(metadata));
+
+        return Task.CompletedTask;
+    }
 
     /// <inheritdoc />
     public Task ValidateRowAsync(ProbeRow row, ProbeMetadata metadata, CancellationToken cancellationToken = default)
