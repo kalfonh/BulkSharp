@@ -47,6 +47,8 @@
   href: dashboard.md
 - name: Dashboard Extensibility
   href: dashboard-extensibility.md
+- name: Building a Custom Dashboard
+  href: building-a-custom-dashboard.md
 
 # ── Deployment & Infrastructure ───────────────────────────
 - name: Gateway

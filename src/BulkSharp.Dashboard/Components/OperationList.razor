@@ -1,8 +1,7 @@
 @page "/bulks"
 @using BulkSharp.Core.Domain.Operations
 @using BulkSharp.Core.Domain.Queries
-@using BulkSharp.Processing.Services
-@inject IBulkOperationService OperationService
+@inject BulkSharpApiClient Api
 @inject ILogger<OperationList> Logger
 
 <div class="bulk-list">
@@ -135,7 +134,7 @@
                 Page = currentPage,
                 PageSize = PageSize
             };
-            pagedResult = await OperationService.QueryBulkOperationsAsync(query);
+            pagedResult = await Api.QueryBulksAsync(query);
         }
         catch (Exception ex)
         {
@@ -198,7 +197,7 @@
 
     private async Task CancelBulk(Guid bulkId)
     {
-        await OperationService.CancelBulkOperationAsync(bulkId);
+        await Api.CancelAsync(bulkId);
         await LoadBulks();
     }
 }
