@@ -27,6 +27,11 @@ internal static partial class LogMessages
     [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to fetch operations list from backend '{Service}'")]
     public static partial void AggregateListFailed(this ILogger logger, Exception ex, string service);
 
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Fan-out paging truncated: page {Page} of size {PageSize} exceeds the {Limit}-row per-backend bound. Results may be incomplete; pass ?source= to page a single backend.")]
+    public static partial void FanOutPagingTruncated(this ILogger logger, int page, int pageSize, int limit);
+
     // ── GatewayRouter ──────────────────────────────────────────────────
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Cache miss for operation {OperationId}, fanning out to all backends")]
