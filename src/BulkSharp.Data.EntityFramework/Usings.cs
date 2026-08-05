@@ -1,4 +1,7 @@
+global using BulkSharp.Core.Abstractions.Events;
 global using BulkSharp.Core.Abstractions.Storage;
+global using BulkSharp.Core.Contracts;
+global using BulkSharp.Core.Domain.Events;
 global using BulkSharp.Core.Domain.Files;
 global using BulkSharp.Core.Domain.Operations;
 global using Microsoft.EntityFrameworkCore;

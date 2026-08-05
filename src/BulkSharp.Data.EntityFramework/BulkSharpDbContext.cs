@@ -15,6 +15,7 @@ public class BulkSharpDbContext : DbContext
     public DbSet<BulkFile> BulkFiles { get; set; }
     public DbSet<BulkRowRecord> BulkRowRecords { get; set; }
     public DbSet<BulkRowRetryHistory> BulkRowRetryHistory { get; set; }
+    public DbSet<BulkOperationEventRecord> BulkOperationEvents { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -74,6 +75,24 @@ public class BulkSharpDbContext : DbContext
             entity.HasIndex(e => new { e.BulkOperationId, e.RowNumber, e.StepIndex, e.Attempt }).IsUnique();
             entity.HasIndex(e => e.BulkOperationId);
             entity.HasIndex(e => new { e.BulkOperationId, e.RowNumber });
+        });
+
+        modelBuilder.Entity<BulkOperationEventRecord>(entity =>
+        {
+            // Sequence is the key and is database-generated. The identity column is what
+            // makes it monotonic across every instance of a scaled-out service, which is
+            // the whole reason a durable event store exists.
+            entity.HasKey(e => e.Sequence);
+            entity.Property(e => e.Sequence).ValueGeneratedOnAdd();
+
+            entity.Property(e => e.OperationName).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Type).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.Message).HasMaxLength(2000).IsRequired();
+
+            // Clients poll "events for this operation after sequence N" and
+            // "all events after sequence N"; both are covered here.
+            entity.HasIndex(e => new { e.OperationId, e.Sequence });
+            entity.HasIndex(e => e.Timestamp);
         });
     }
 }

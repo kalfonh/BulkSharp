@@ -53,6 +53,14 @@ public static class BulkSharpEntityFrameworkExtensions
         services.AddSingleton<IBulkRowRecordRepository, EntityFrameworkBulkRowRecordRepository>();
         services.AddSingleton<IBulkRowRetryHistoryRepository, EntityFrameworkBulkRowRetryHistoryRepository>();
 
+        // Replace the in-memory event store. AddBulkSharp registers that one with TryAdd,
+        // so opting into EF persistence must actively override it — otherwise a host with
+        // durable operation storage would still lose events on restart, and a scaled-out
+        // service would hand clients sequence numbers that are not comparable between
+        // instances.
+        services.RemoveAll<IBulkOperationEventStore>();
+        services.AddSingleton<IBulkOperationEventStore, EntityFrameworkBulkOperationEventStore>();
+
         return services;
     }
 

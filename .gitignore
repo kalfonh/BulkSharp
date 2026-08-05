@@ -42,7 +42,9 @@ prod-storage/
 
 # DocFX output
 _site/
-docs/api/
+docs/api/*
+# ...except the authored landing page, which DocFX does not generate
+!docs/api/index.md
 
 # Plan documents (local only)
 docs/plans/
@@ -55,3 +57,4 @@ docs/superpowers/
 
 # Build artifacts
 artifacts/
+/docs/presentations
