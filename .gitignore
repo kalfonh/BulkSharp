@@ -47,6 +47,9 @@ docs/api/
 # Plan documents (local only)
 docs/plans/
 
+# Superpowers planning/spec documents (local working notes, not shipped docs)
+docs/superpowers/
+
 # Claude Code / Superpowers runtime
 .superpowers/
 
