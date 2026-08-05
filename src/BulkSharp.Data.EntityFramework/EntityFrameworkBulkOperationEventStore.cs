@@ -90,12 +90,28 @@ internal sealed class EntityFrameworkBulkOperationEventStore(
         int limit,
         CancellationToken cancellationToken)
     {
-        if (since.HasValue)
-            query = query.Where(e => e.Sequence > since.Value);
+        var bounded = Math.Clamp(limit, 1, 1000);
+
+        if (!since.HasValue)
+        {
+            // No cursor means the caller is starting up and wants current state, so return
+            // the most recent window, oldest-first within it. Returning the oldest events
+            // instead would strand the client's cursor in the middle of history, and every
+            // later poll would replay old events as if they were new.
+            var tail = await query
+                .OrderByDescending(e => e.Sequence)
+                .Take(bounded)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+
+            tail.Reverse();
+            return tail.Select(r => r.ToDto()).ToList();
+        }
 
         var records = await query
+            .Where(e => e.Sequence > since.Value)
             .OrderBy(e => e.Sequence)
-            .Take(Math.Clamp(limit, 1, 1000))
+            .Take(bounded)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 

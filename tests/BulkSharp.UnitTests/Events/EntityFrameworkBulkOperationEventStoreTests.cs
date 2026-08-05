@@ -220,6 +220,42 @@ public class EntityFrameworkBulkOperationEventStoreTests
         descriptors[0].ImplementationType.Should().Be<EntityFrameworkBulkOperationEventStore>();
     }
 
+    /// <summary>
+    /// Mirrors the in-memory store's contract: a caller with no cursor is bootstrapping and
+    /// must receive the newest window, or its cursor lands mid-history and every later poll
+    /// replays old events as new.
+    /// </summary>
+    [Fact]
+    public async Task GetAsync_WithoutSince_ReturnsTheNewestWindowNotTheOldest()
+    {
+        var store = CreateStore();
+        var id = Guid.NewGuid();
+        var appended = new List<long>();
+        for (var i = 0; i < 20; i++)
+            appended.Add((await store.AppendAsync(Event(id))).Sequence);
+
+        var events = await store.GetAsync(limit: 5);
+
+        events.Should().HaveCount(5);
+        events.Select(e => e.Sequence).Should().ContainInOrder(appended.TakeLast(5));
+    }
+
+    [Fact]
+    public async Task GetAsync_WithoutSince_LeavesCursorAtTheLatestEvent()
+    {
+        var store = CreateStore();
+        var id = Guid.NewGuid();
+        for (var i = 0; i < 20; i++)
+            await store.AppendAsync(Event(id));
+
+        var bootstrap = await store.GetAsync(limit: 5);
+        var cursor = bootstrap.Max(e => e.Sequence);
+
+        var next = await store.GetAsync(since: cursor);
+
+        next.Should().BeEmpty("a client that has just bootstrapped is up to date");
+    }
+
     [Fact]
     public async Task AppendAsync_WithNullEvent_Throws()
     {

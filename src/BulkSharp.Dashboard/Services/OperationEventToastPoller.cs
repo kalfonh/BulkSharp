@@ -20,6 +20,7 @@ namespace BulkSharp.Dashboard.Services;
 /// <param name="toasts">The UI toast service.</param>
 public sealed class OperationEventToastPoller(BulkSharpApiClient api, ToastService toasts)
 {
+    private readonly SemaphoreSlim _pumpGate = new(1, 1);
     private long _lastSequence;
 
     /// <summary>
@@ -28,22 +29,40 @@ public sealed class OperationEventToastPoller(BulkSharpApiClient api, ToastServi
     /// <remarks>
     /// Call from a component's polling timer. The sequence cursor advances only over events
     /// actually delivered, so nothing is shown twice and nothing is skipped.
+    /// <para>
+    /// Overlapping pumps are skipped rather than queued. A pump slower than the polling
+    /// interval would otherwise run concurrently with the next one, both reading the cursor
+    /// before either advanced it, and both raising the same toasts.
+    /// </para>
     /// </remarks>
     /// <param name="cancellationToken">A cancellation token.</param>
     public async Task PumpAsync(CancellationToken cancellationToken = default)
     {
-        var events = await api.GetEventsAsync(
-            since: _lastSequence == 0 ? null : _lastSequence,
-            cancellationToken: cancellationToken);
+        if (!await _pumpGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+            return;
 
-        foreach (var operationEvent in events)
+        try
         {
-            // On the first pump, adopt the cursor without replaying history — a operator
-            // opening the dashboard should not be shown every event since startup.
-            if (_lastSequence != 0)
-                toasts.Show(operationEvent.OperationName, operationEvent.Message, ToLevel(operationEvent.Severity));
+            var isFirstPump = _lastSequence == 0;
 
-            _lastSequence = Math.Max(_lastSequence, operationEvent.Sequence);
+            var events = await api.GetEventsAsync(
+                since: isFirstPump ? null : _lastSequence,
+                cancellationToken: cancellationToken);
+
+            foreach (var operationEvent in events)
+            {
+                // On the first pump, adopt the cursor without replaying history — an
+                // operator opening the dashboard should not be shown every event since
+                // startup.
+                if (!isFirstPump)
+                    toasts.Show(operationEvent.OperationName, operationEvent.Message, ToLevel(operationEvent.Severity));
+
+                _lastSequence = Math.Max(_lastSequence, operationEvent.Sequence);
+            }
+        }
+        finally
+        {
+            _pumpGate.Release();
         }
     }
 

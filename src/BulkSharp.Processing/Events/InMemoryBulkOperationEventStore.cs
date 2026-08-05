@@ -66,9 +66,21 @@ public sealed class InMemoryBulkOperationEventStore : IBulkOperationEventStore
 
         lock (_gate)
         {
-            return _events
-                .Where(predicate)
-                .Where(e => since is null || e.Sequence > since)
+            var matching = _events.Where(predicate);
+
+            if (since is null)
+            {
+                // No cursor means the caller is starting up and wants current state, so
+                // return the most recent window. Returning the oldest events instead would
+                // leave a client's cursor stranded in the middle of history, and every
+                // later poll would replay old events as if they were new.
+                return matching
+                    .TakeLast(bounded)
+                    .ToList();
+            }
+
+            return matching
+                .Where(e => e.Sequence > since)
                 .Take(bounded)
                 .ToList();
         }
