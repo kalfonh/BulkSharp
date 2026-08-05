@@ -225,8 +225,31 @@ dashboard drives its toasts from exactly this feed.
 > Do not confuse this with `IBulkNotificationChannel`. Channels deliver **outward** — email,
 > SMS, webhooks — and correctly execute in the worker. This feed is what a UI reads back.
 >
-> The default store is in-memory and per-instance. A multi-instance deployment needs a
-> shared `IBulkOperationEventStore`, or each instance serves only the events it observed.
+### Choosing a store
+
+`AddBulkSharp` registers an in-memory store: a bounded tail with a per-process sequence
+counter. Fine for a single instance, wrong for more than one — each instance counts from 1
+independently, so a client polling through a load balancer either stalls (passing a `since`
+one instance has not reached) or skips events (because the same number means a different
+event elsewhere). Events are also lost on restart.
+
+`AddBulkSharpEntityFramework` replaces it with a durable store that delegates sequencing to
+a database identity column, so every instance shares one ordering:
+
+```csharp
+services.AddBulkSharpEntityFramework<BulkSharpDbContext>();
+```
+
+Events accumulate — one per lifecycle transition plus one per failed row — so prune on a
+schedule. The library does not impose a retention window, because the right one depends on
+how your feed is consumed:
+
+```csharp
+await eventStore.PruneAsync(DateTime.UtcNow.AddDays(-7), ct);
+```
+
+To back the feed with something else — Redis, a message log — implement
+`IBulkOperationEventStore` and register it; the built-in registration uses `TryAdd`.
 
 ## Authorization
 
