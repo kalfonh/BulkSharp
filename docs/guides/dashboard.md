@@ -2,6 +2,10 @@
 
 BulkSharp includes a drop-in Blazor Server dashboard for monitoring and managing bulk operations.
 
+The dashboard is optional. The HTTP API it consumes lives in a separate package,
+`BulkSharp.Api`, so you can build a front end in any technology stack instead — see
+[Building a custom dashboard](building-a-custom-dashboard.md).
+
 ## Setup
 
 ```csharp
@@ -9,8 +13,23 @@ builder.Services.AddBulkSharp();
 builder.Services.AddBulkSharpDashboard();
 
 var app = builder.Build();
-app.UseBulkSharpDashboard();
+app.UseBulkSharpDashboard();   // UI plus the BulkSharp API endpoints
 ```
+
+### UI without the API
+
+When the API is served from elsewhere — for example a gateway aggregating several
+backends — mount the UI alone:
+
+```csharp
+app.UseBulkSharpGateway();      // aggregated API
+app.UseBulkSharpDashboardUi();  // UI only
+```
+
+### API without the UI
+
+Reference `BulkSharp.Api` alone and call `MapBulkSharpEndpoints()`. Nothing Razor or
+Blazor is published with your application.
 
 ## Features
 

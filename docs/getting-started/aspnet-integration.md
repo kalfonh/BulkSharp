@@ -36,8 +36,11 @@ builder.Services.AddBulkSharp(b => b
     .UseFileStorage(fs => fs.UseFileSystem("data/uploads"))
     .UseScheduler(s => s.UseChannels(opts => opts.WorkerCount = 2)));
 
-// Add the dashboard
+// Add the dashboard (UI plus the HTTP API)
 builder.Services.AddBulkSharpDashboard();
+
+// Or, for the HTTP API with no UI dependency — reference BulkSharp.Api instead:
+// builder.Services.AddBulkSharpEndpoints();
 ```
 
 ## 3. Configure the pipeline
@@ -46,6 +49,9 @@ builder.Services.AddBulkSharpDashboard();
 var app = builder.Build();
 
 app.UseBulkSharpDashboard();
+
+// API only:
+// app.MapBulkSharpEndpoints();
 
 app.Run();
 ```

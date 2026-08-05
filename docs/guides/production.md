@@ -94,7 +94,7 @@ BulkSharp uses source-generated `LoggerMessage` throughout the Processing layer.
 
 ### Health Checks
 
-BulkSharp does not register health checks automatically. For production, consider adding:
+`AddBulkSharpGateway` registers a `bulksharp-backends` check tagged `ready` — see the [gateway guide](gateway.md#health). Nothing else registers health checks automatically. For production, consider adding:
 
 ```csharp
 // Verify database connectivity
