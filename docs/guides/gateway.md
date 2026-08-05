@@ -87,7 +87,11 @@ Each `BulkOperation` has a `Source` property set by the backend during creation.
 
 ### Aggregated List
 
-`GET /api/bulks` forwards the caller's query parameters to each backend, merges the small result sets, re-sorts by `CreatedAt` descending, and re-paginates. Failed backends contribute zero results.
+`GET /api/bulks` merges results across backends, sorting by `createdAt` descending. Failed backends contribute zero results.
+
+To page correctly across backends the gateway cannot simply forward the caller's page — asking each backend for page 2 would only ever surface `pageSize x backendCount` rows, which is not the true second page of the merged ordering. Instead it requests a prefix from each backend deep enough to cover the requested page, then slices the merge.
+
+That prefix is bounded at **1000 rows per backend**. Beyond it, results may be incomplete and a warning is logged rather than silently truncating — a short page otherwise reads to a client as "there is no more data". Clients paging deeper should pass `source` to page a single backend, which pages natively with no bound.
 
 #### Source-Based Routing
 
@@ -97,7 +101,9 @@ When the caller includes a `source` query parameter, the gateway skips fan-out a
 GET /api/bulks?source=device-service&page=1&pageSize=20
 ```
 
-The `source` value must match the backend name registered via `AddBackend()` (which must also match the backend's `BulkSharpOptions.ServiceName`). The `source` parameter is stripped before forwarding — the backend never sees it. If the value doesn't match any registered backend, the gateway logs a warning and falls back to fan-out.
+The `source` value must match a backend name registered via `AddBackend()`. It is stripped before forwarding — the backend never sees it. If the value doesn't match any registered backend, the gateway logs a warning and falls back to fan-out.
+
+Backend names are the gateway's own identifiers and do **not** need to match a backend's `BulkSharpOptions.ServiceName`. Routing follows the backend that answers, not the value it reports.
 
 ## Configuration
 
@@ -123,8 +129,48 @@ builder.Services.AddBulkSharpGateway(gw => gw
 
 ## Authorization
 
+Reads and writes are governed separately, so viewers can be prevented from mutating:
+
+```csharp
+app.UseBulkSharpGateway(new BulkSharpAuthorizationOptions
+{
+    ReadPolicy    = "bulk:read",
+    OperatePolicy = "bulk:operate"
+});
+```
+
+`OperatePolicy` falls back to `ReadPolicy` when omitted. A single policy for everything:
+
 ```csharp
 app.UseBulkSharpGateway(authorizationPolicy: "BulkSharpAdmin");
 ```
 
-Mutating endpoints (create, cancel, signal) require the specified policy. Read endpoints are open.
+Passing nothing leaves every endpoint unauthorized, including reads — appropriate only when your own middleware enforces access.
+
+### Backend credentials
+
+By default the caller's bearer token is forwarded to each backend, so backends authorize the original caller rather than an anonymous gateway. Supply a different credential model with a delegating handler:
+
+```csharp
+builder.Services.AddBulkSharpGateway(gw => gw
+    .AddBackend("device-service", "https://device-svc.internal")
+    .ConfigureResilience(opts => opts.ForwardBearerToken = false)
+    .AddBackendHandler<MyServiceCredentialHandler>());
+```
+
+Handlers run ahead of the resilience pipeline, so retried requests carry the credential.
+
+## Health
+
+`AddBulkSharpGateway` registers a `bulksharp-backends` health check tagged `ready`. It reports **degraded** when only some backends are reachable — the gateway still correctly serves the operations owned by the rest — and **unhealthy** when none are, or when no backends are configured.
+
+```csharp
+app.MapHealthChecks("/healthz", new HealthCheckOptions { Predicate = _ => false });
+app.MapHealthChecks("/readyz", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready") });
+```
+
+Keeping liveness separate matters: an unreachable backend should not cause the orchestrator to restart a gateway that is working as designed.
+
+## API contract
+
+The gateway exposes the same routes, verbs and response shapes as `BulkSharp.Api`, enforced by `ContractConformanceTests` rather than by convention. A client generated from the OpenAPI document works against either. Two additions are gateway-specific and additive: `sourceService` on operation descriptors, and the `?source=` query parameter above.

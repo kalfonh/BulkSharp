@@ -123,12 +123,25 @@ Operation list with filtering, progress tracking, per-row error drill-down, file
 | `BulkSharp` | Meta-package with DI registration, builders, and defaults |
 | `BulkSharp.Core` | Abstractions, domain models, and attributes |
 | `BulkSharp.Processing` | Processing engine, data formats, storage, and scheduling |
-| `BulkSharp.Dashboard` | Blazor Server monitoring UI |
+| `BulkSharp.Api` | HTTP API endpoints, with no UI dependency |
+| `BulkSharp.Dashboard` | Blazor Server monitoring UI, built on `BulkSharp.Api` |
 | `BulkSharp.Data.EntityFramework` | SQL Server persistence via EF Core |
 | `BulkSharp.Files.S3` | Amazon S3 file storage |
 | `BulkSharp.Gateway` | Multi-service API gateway with routing and aggregation |
 
 Most consumers only need `BulkSharp`. Add optional packages as needed.
+
+### Choosing a front end
+
+The HTTP API and the UI are separate packages, so you are not committed to Blazor.
+
+- **Want a UI immediately?** Add `BulkSharp.Dashboard` and call `UseBulkSharpDashboard()`.
+  One line gives you a working dashboard in-process.
+- **Building your own front end** in React, Angular, Vue or anything else? Add
+  `BulkSharp.Api` alone. Nothing Razor or Blazor is published with your application, and
+  the OpenAPI document at `/openapi/v1.json` generates a typed client in any language.
+
+See [Building a custom dashboard](docs/guides/building-a-custom-dashboard.md).
 
 ## Samples
 

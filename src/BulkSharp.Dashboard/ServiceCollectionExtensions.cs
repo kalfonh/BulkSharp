@@ -11,10 +11,13 @@ public static class ServiceCollectionExtensions
     /// via <c>services.AddBulkSharp()</c> or equivalent.
     /// </summary>
     /// <remarks>
-    /// <b>Security:</b> The dashboard does NOT enforce authorization on its API endpoints
-    /// (create, cancel, signal, query). The host application MUST configure authentication
-    /// and authorization middleware (e.g., <c>app.UseAuthentication(); app.UseAuthorization();</c>)
-    /// or apply endpoint filters to protect these routes in production.
+    /// <b>Security:</b> authorization is opt-in. Endpoints are unauthorized unless the host
+    /// passes policy names to <c>UseBulkSharpDashboard</c>, which governs read and mutating
+    /// endpoints separately via <see cref="Core.Contracts.BulkSharpAuthorizationOptions"/>.
+    /// The host application must also configure the authentication and authorization
+    /// middleware (<c>app.UseAuthentication(); app.UseAuthorization();</c>).
+    /// Leaving the endpoints unauthorized exposes operation and row data, which is customer
+    /// data, and is appropriate only for local self-hosting.
     /// </remarks>
     public static IServiceCollection AddBulkSharpDashboard(this IServiceCollection services)
     {
