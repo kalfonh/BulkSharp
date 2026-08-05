@@ -1,6 +1,7 @@
 using BulkSharp.Core.Abstractions.Events;
 using BulkSharp.Core.Contracts;
 using BulkSharp.Data.EntityFramework;
+using BulkSharp.Processing.Events;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -199,25 +200,83 @@ public class EntityFrameworkBulkOperationEventStoreTests
     /// silently, because everything would appear to work on one instance.
     /// </summary>
     [Fact]
-    public void AddBulkSharpEntityFramework_ReplacesTheInMemoryEventStore()
+    public void AddBulkSharpEntityFramework_OverridesTheInMemoryEventStore()
     {
-        var services = new ServiceCollection();
+        using var provider = BuildProvider(useEntityFramework: true);
 
-        services.AddBulkSharp(b => b
-            .UseFileStorage(fs => fs.UseInMemory())
-            .UseMetadataStorage(ms => ms.UseInMemory())
-            .UseScheduler(s => s.UseImmediate()));
+        provider.GetRequiredService<IBulkOperationEventStore>()
+            .Should().BeOfType<EntityFrameworkBulkOperationEventStore>();
+    }
+
+    [Fact]
+    public void WithoutEntityFramework_TheInMemoryEventStoreIsUsed()
+    {
+        using var provider = BuildProvider(useEntityFramework: false);
+
+        provider.GetRequiredService<IBulkOperationEventStore>()
+            .Should().BeOfType<InMemoryBulkOperationEventStore>();
+    }
+
+    /// <summary>
+    /// A host that registers its own store — Redis, a message log — must keep it. Overriding
+    /// by last-registration-wins preserves that; removing existing registrations outright
+    /// would silently discard the host's choice.
+    /// </summary>
+    [Fact]
+    public void AHostsOwnEventStore_SurvivesTheEntityFrameworkRegistration()
+    {
+        var services = NewServices();
+        services.AddSingleton<IBulkOperationEventStore, CustomEventStore>();
 
         services.AddDbContextFactory<BulkSharpDbContext>(o =>
             o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
         services.AddBulkSharpEntityFramework<BulkSharpDbContext>();
 
-        var descriptors = services
-            .Where(d => d.ServiceType == typeof(IBulkOperationEventStore))
-            .ToList();
+        // The host registered first, so EF wins here — but the host's registration is still
+        // present and takes effect if it registers afterwards.
+        services.AddSingleton<IBulkOperationEventStore, CustomEventStore>();
 
-        descriptors.Should().ContainSingle("the in-memory store must be removed, not layered under");
-        descriptors[0].ImplementationType.Should().Be<EntityFrameworkBulkOperationEventStore>();
+        using var provider = services.BuildServiceProvider();
+        provider.GetRequiredService<IBulkOperationEventStore>()
+            .Should().BeOfType<CustomEventStore>();
+    }
+
+    private static ServiceCollection NewServices()
+    {
+        var services = new ServiceCollection();
+        services.AddBulkSharp(b => b
+            .UseFileStorage(fs => fs.UseInMemory())
+            .UseMetadataStorage(ms => ms.UseInMemory())
+            .UseScheduler(s => s.UseImmediate()));
+        return services;
+    }
+
+    private static ServiceProvider BuildProvider(bool useEntityFramework)
+    {
+        var services = NewServices();
+
+        if (useEntityFramework)
+        {
+            services.AddDbContextFactory<BulkSharpDbContext>(o =>
+                o.UseInMemoryDatabase(Guid.NewGuid().ToString()));
+            services.AddBulkSharpEntityFramework<BulkSharpDbContext>();
+        }
+
+        return services.BuildServiceProvider();
+    }
+
+    private sealed class CustomEventStore : IBulkOperationEventStore
+    {
+        public Task<OperationEventDto> AppendAsync(OperationEventDto e, CancellationToken ct = default)
+            => Task.FromResult(e);
+
+        public Task<IReadOnlyList<OperationEventDto>> GetForOperationAsync(
+            Guid operationId, long? since = null, int limit = 100, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OperationEventDto>>([]);
+
+        public Task<IReadOnlyList<OperationEventDto>> GetAsync(
+            long? since = null, int limit = 100, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<OperationEventDto>>([]);
     }
 
     /// <summary>
