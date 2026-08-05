@@ -132,6 +132,30 @@ public static class BulkSharpGatewayWebApplicationExtensions
             return await ProxyResponseAsync(response, ct);
         });
 
+        // GET /api/bulks/{id}/events - route by source
+        readGroup.MapGet(BulkSharpRoutes.BulkEvents, async (
+            Guid id,
+            HttpRequest request,
+            GatewayRouter router,
+            CancellationToken ct) =>
+        {
+            var client = await router.RouteBySourceServiceAsync(id, ct);
+            if (client == null) return Results.NotFound();
+
+            using var response = await client.GetBulkEventsAsync(id, request.QueryString.Value ?? "", ct);
+            return await ProxyResponseAsync(response, ct);
+        });
+
+        // GET /api/events - merged notification feed across backends
+        readGroup.MapGet(BulkSharpRoutes.Events, async (
+            HttpRequest request,
+            GatewayAggregator aggregator,
+            CancellationToken ct) =>
+        {
+            var events = await aggregator.AggregateEventsAsync(request.QueryString.Value ?? "", ct);
+            return Results.Ok(events);
+        });
+
         // GET /api/bulks/{id}/status
         readGroup.MapGet(BulkSharpRoutes.BulkStatus, async (
             Guid id,

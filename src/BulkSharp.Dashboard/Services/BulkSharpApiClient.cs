@@ -81,6 +81,22 @@ public sealed class BulkSharpApiClient(HttpClient http)
         return response.IsSuccessStatusCode;
     }
 
+    /// <summary>Returns lifecycle events across all operations, for a notification feed.</summary>
+    /// <param name="since">Return only events newer than this sequence. Null returns the recent tail.</param>
+    /// <param name="limit">Maximum number of events to return.</param>
+    /// <param name="cancellationToken">A cancellation token.</param>
+    public async Task<IReadOnlyList<OperationEventDto>> GetEventsAsync(
+        long? since = null,
+        int limit = 100,
+        CancellationToken cancellationToken = default)
+    {
+        var url = since is null
+            ? $"api/events?limit={limit}"
+            : $"api/events?since={since}&limit={limit}";
+
+        return await http.GetFromJsonAsync<List<OperationEventDto>>(url, Json, cancellationToken) ?? [];
+    }
+
     /// <summary>Lists the operations available for submission.</summary>
     /// <param name="cancellationToken">A cancellation token.</param>
     public async Task<IReadOnlyList<OperationDescriptorDto>> GetOperationsAsync(

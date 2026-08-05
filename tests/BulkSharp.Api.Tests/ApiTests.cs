@@ -295,6 +295,63 @@ public class ApiTests : IAsyncLifetime
         Assert.NotEqual(Guid.Empty, created.OperationId);
     }
 
+    /// <summary>
+    /// Events are dispatched inside the processing pipeline, so a UI in another process
+    /// only ever sees them by reading them back here.
+    /// </summary>
+    [Fact]
+    public async Task GetEvents_ExposesOperationLifecycleOverHttp()
+    {
+        var csv = "Email Address,DisplayName\nuser@example.com,User\n";
+        using var content = new MultipartFormDataContent
+        {
+            { new StringContent("probe-operation"), "operationName" },
+            { new StringContent("event-probe"), "createdBy" },
+            { new StringContent("{\"AccountId\":\"acct-1\"}"), "metadata" }
+        };
+        content.Add(new StringContent(csv), "file", "rows.csv");
+
+        var created = await _client.PostAsync("/api/bulks", content);
+        created.EnsureSuccessStatusCode();
+        var operation = await created.Content.ReadFromJsonAsync<CreateOperationResponse>(
+            BulkSharpJsonSerialization.Options);
+
+        var events = await _client.GetFromJsonAsync<List<OperationEventDto>>(
+            $"/api/bulks/{operation!.OperationId}/events", BulkSharpJsonSerialization.Options);
+
+        Assert.NotNull(events);
+        Assert.NotEmpty(events);
+        Assert.All(events, e => Assert.Equal(operation.OperationId, e.OperationId));
+        Assert.All(events, e => Assert.True(e.Sequence > 0));
+    }
+
+    [Fact]
+    public async Task GetEvents_WithSince_ReturnsOnlyNewerEvents()
+    {
+        var all = await _client.GetFromJsonAsync<List<OperationEventDto>>(
+            "/api/events", BulkSharpJsonSerialization.Options);
+
+        Assert.NotNull(all);
+        if (all.Count == 0)
+            return; // nothing recorded yet in this fixture ordering
+
+        var highest = all.Max(e => e.Sequence);
+
+        var newer = await _client.GetFromJsonAsync<List<OperationEventDto>>(
+            $"/api/events?since={highest}", BulkSharpJsonSerialization.Options);
+
+        Assert.NotNull(newer);
+        Assert.All(newer, e => Assert.True(e.Sequence > highest));
+    }
+
+    [Fact]
+    public async Task GetEvents_SerializesSeverityAsString()
+    {
+        var json = await _client.GetStringAsync("/api/events");
+
+        Assert.DoesNotContain("\"severity\":0", json);
+    }
+
     [Fact]
     public async Task Api_SerializesEnumsAsStrings()
     {

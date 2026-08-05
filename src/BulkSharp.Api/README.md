@@ -104,6 +104,8 @@ Clients in other languages parse the JSON directly and need no special handling.
 | GET | `/api/bulks/{id}/export` | Export a report, errors, or rows |
 | GET | `/api/bulks/{id}/retry/eligibility` | Whether the operation can be retried |
 | GET | `/api/bulks/{id}/retry/history` | Retry attempts, paged |
+| GET | `/api/bulks/{id}/events` | Lifecycle events for one operation |
+| GET | `/api/events` | Lifecycle events across all operations, for a notification feed |
 | POST | `/api/bulks` | Create an operation from an uploaded file |
 | POST | `/api/bulks/validate` | Validate a submission without creating it |
 | POST | `/api/bulks/{id}/cancel` | Cancel a running operation |

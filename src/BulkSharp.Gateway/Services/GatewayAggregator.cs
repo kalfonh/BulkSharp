@@ -174,6 +174,47 @@ public sealed class GatewayAggregator(
     }
 
     /// <summary>
+    /// Merges the event feeds of every backend into one sequence-ordered list.
+    /// </summary>
+    /// <remarks>
+    /// Sequence numbers are per-store, so they are not comparable across backends. The
+    /// merge orders by timestamp instead, which is what a notification feed needs; clients
+    /// paging with <c>since</c> should scope to one operation, where a single backend owns
+    /// the sequence.
+    /// </remarks>
+    /// <param name="queryString">The caller's query string, forwarded verbatim.</param>
+    /// <param name="ct">A cancellation token.</param>
+    public async Task<List<OperationEventDto>> AggregateEventsAsync(string queryString, CancellationToken ct)
+    {
+        var clients = router.GetAllClients().ToList();
+
+        var tasks = clients.Select(async client =>
+        {
+            try
+            {
+                using var perBackend = CreatePerBackendToken(ct);
+                using var response = await client.GetEventsAsync(queryString, perBackend.Token);
+                if (!response.IsSuccessStatusCode) return new List<OperationEventDto>();
+
+                var json = await response.Content.ReadAsStringAsync(perBackend.Token);
+                return JsonSerializer.Deserialize<List<OperationEventDto>>(json, JsonOptions) ?? [];
+            }
+            catch (Exception ex)
+            {
+                logger.AggregateListFailed(ex, client.ServiceName);
+                return new List<OperationEventDto>();
+            }
+        });
+
+        var results = await Task.WhenAll(tasks);
+
+        return results
+            .SelectMany(batch => batch)
+            .OrderBy(e => e.Timestamp)
+            .ToList();
+    }
+
+    /// <summary>
     /// Bounds a single backend's contribution to a fan-out. Without this one slow backend
     /// holds the whole aggregation open for the full HTTP timeout. A backend that exceeds
     /// the bound is caught by the surrounding handler and degrades to an empty result,
