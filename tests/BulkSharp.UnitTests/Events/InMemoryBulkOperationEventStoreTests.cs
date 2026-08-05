@@ -126,6 +126,52 @@ public class InMemoryBulkOperationEventStoreTests
         last.Sequence.Should().Be(1051);
     }
 
+    /// <summary>
+    /// A client with no cursor is starting up and wants current state. Returning the oldest
+    /// events would leave its cursor stranded in the middle of history, so every later poll
+    /// would replay old events as new — observed in the dashboard as duplicated toasts.
+    /// </summary>
+    [Fact]
+    public async Task GetAsync_WithoutSince_ReturnsTheNewestWindowNotTheOldest()
+    {
+        var id = Guid.NewGuid();
+        for (var i = 0; i < 20; i++)
+            await AppendAsync(id);
+
+        var events = await _sut.GetAsync(limit: 5);
+
+        events.Should().HaveCount(5);
+        events.Select(e => e.Sequence).Should().ContainInOrder(16, 17, 18, 19, 20);
+    }
+
+    [Fact]
+    public async Task GetAsync_WithoutSince_LeavesCursorAtTheLatestEvent()
+    {
+        var id = Guid.NewGuid();
+        for (var i = 0; i < 20; i++)
+            await AppendAsync(id);
+
+        // Bootstrap exactly as a polling client does.
+        var bootstrap = await _sut.GetAsync(limit: 5);
+        var cursor = bootstrap.Max(e => e.Sequence);
+
+        var next = await _sut.GetAsync(since: cursor);
+
+        next.Should().BeEmpty("a client that has just bootstrapped is up to date");
+    }
+
+    [Fact]
+    public async Task GetForOperationAsync_WithoutSince_ReturnsTheNewestWindow()
+    {
+        var id = Guid.NewGuid();
+        for (var i = 0; i < 20; i++)
+            await AppendAsync(id);
+
+        var events = await _sut.GetForOperationAsync(id, limit: 3);
+
+        events.Select(e => e.Sequence).Should().ContainInOrder(18, 19, 20);
+    }
+
     [Fact]
     public async Task AppendAsync_WithNullEvent_Throws()
     {
