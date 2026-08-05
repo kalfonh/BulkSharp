@@ -189,6 +189,45 @@ For detail, `GET /api/bulks/{id}/errors` returns failed rows and
 `GET /api/bulks/{id}/rows` returns per-row pipeline progress with per-step state. Both are
 paged with the same `items` / `totalCount` / `page` / `pageSize` / `hasNextPage` envelope.
 
+## Notifications
+
+Operation events — created, status changed, completed, failed, row failed — are dispatched
+**inside the processing pipeline**. A front end is a different process, so it never observes
+them directly. Read them back instead:
+
+```
+GET /api/events?since={sequence}&limit=100
+GET /api/bulks/{id}/events?since={sequence}
+```
+
+```json
+[
+  {
+    "sequence": 42,
+    "operationId": "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
+    "operationName": "user-import",
+    "type": "Completed",
+    "severity": "Warning",
+    "message": "48/50 rows succeeded in 0:00:12",
+    "timestamp": "2026-08-05T09:14:22Z"
+  }
+]
+```
+
+Poll with the highest `sequence` you have seen. Nothing is delivered twice and nothing is
+skipped. Adopt the cursor without rendering on the first poll, or an operator opening the
+page is shown every event since startup.
+
+The store keeps a bounded recent tail, so `sequence` values keep increasing across eviction:
+a client that falls far behind observes a gap rather than silently re-reading. The built-in
+dashboard drives its toasts from exactly this feed.
+
+> Do not confuse this with `IBulkNotificationChannel`. Channels deliver **outward** — email,
+> SMS, webhooks — and correctly execute in the worker. This feed is what a UI reads back.
+>
+> The default store is in-memory and per-instance. A multi-instance deployment needs a
+> shared `IBulkOperationEventStore`, or each instance serves only the events it observed.
+
 ## Authorization
 
 Reads and writes are governed separately, so viewers can be prevented from mutating:

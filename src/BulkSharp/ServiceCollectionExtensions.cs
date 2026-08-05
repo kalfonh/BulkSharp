@@ -5,6 +5,7 @@ using BulkSharp.Core.Abstractions.Export;
 using BulkSharp.Processing.Notifications;
 using BulkSharp.Core.Abstractions.Storage;
 using BulkSharp.Core.Configuration;
+using BulkSharp.Processing.Events;
 using BulkSharp.Processing.Export;
 using BulkSharp.Processing.Scheduling;
 using BulkSharp.Processing.Services;
@@ -248,6 +249,12 @@ public static class BulkSharpServiceCollectionExtensions
         // Notification event handler — dispatches to registered IBulkNotificationChannel implementations
         services.AddScoped<IBulkOperationEventHandler, NotificationEventHandler>();
 
+        // Operation event feed — lets a user interface in any process read back what
+        // happened. Events are dispatched inside the pipeline, so a UI hosted elsewhere
+        // would otherwise never observe them.
+        services.TryAddSingleton<IBulkOperationEventStore, InMemoryBulkOperationEventStore>();
+        services.AddScoped<IBulkOperationEventHandler, EventStoreEventHandler>();
+
         // Retry and export services
         services.AddScoped<IBulkRetryService, BulkRetryService>();
         services.AddScoped<IBulkExportService, BulkExportService>();
@@ -293,6 +300,12 @@ public static class BulkSharpServiceCollectionExtensions
 
         // Notification event handler — dispatches to registered IBulkNotificationChannel implementations
         services.AddScoped<IBulkOperationEventHandler, NotificationEventHandler>();
+
+        // Operation event feed — lets a user interface in any process read back what
+        // happened. Events are dispatched inside the pipeline, so a UI hosted elsewhere
+        // would otherwise never observe them.
+        services.TryAddSingleton<IBulkOperationEventStore, InMemoryBulkOperationEventStore>();
+        services.AddScoped<IBulkOperationEventHandler, EventStoreEventHandler>();
 
         // Retry and export services
         services.AddScoped<IBulkRetryService, BulkRetryService>();

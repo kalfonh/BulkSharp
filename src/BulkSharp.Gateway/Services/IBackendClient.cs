@@ -21,4 +21,6 @@ public interface IBackendClient
     Task<HttpResponseMessage> GetRetryEligibilityAsync(Guid id, CancellationToken ct = default);
     Task<HttpResponseMessage> GetRetryHistoryAsync(Guid id, string queryString, CancellationToken ct = default);
     Task<HttpResponseMessage> GetExportAsync(Guid id, string queryString, CancellationToken ct = default);
+    Task<HttpResponseMessage> GetBulkEventsAsync(Guid id, string queryString, CancellationToken ct = default);
+    Task<HttpResponseMessage> GetEventsAsync(string queryString, CancellationToken ct = default);
 }

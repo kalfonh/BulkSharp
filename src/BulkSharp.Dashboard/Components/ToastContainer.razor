@@ -1,5 +1,7 @@
 @using BulkSharp.Dashboard.Services
 @inject ToastService ToastService
+@inject OperationEventToastPoller EventPoller
+@inject ILogger<ToastContainer> Logger
 @implements IDisposable
 
 <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
@@ -21,11 +23,36 @@
 
 @code {
     private IReadOnlyList<ToastMessage> messages = Array.Empty<ToastMessage>();
+    private readonly CancellationTokenSource cts = new();
+    private Timer? eventTimer;
+
+    private const int EventPollIntervalMs = 2000;
 
     protected override void OnInitialized()
     {
         ToastService.OnChange += OnToastChanged;
         messages = ToastService.Messages;
+
+        // Operation events are raised in the processing pipeline, which may be a different
+        // process. Polling the feed is what makes toasts work in every topology.
+        eventTimer = new Timer(async _ => await PumpEventsAsync(), null, 0, EventPollIntervalMs);
+    }
+
+    private async Task PumpEventsAsync()
+    {
+        try
+        {
+            await EventPoller.PumpAsync(cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // Component disposed mid-poll.
+        }
+        catch (Exception ex)
+        {
+            // A transient feed failure must never break the page it is rendered on.
+            Logger.LogDebug(ex, "Failed to poll the operation event feed");
+        }
     }
 
     private async void OnToastChanged()
@@ -53,5 +80,9 @@
     public void Dispose()
     {
         ToastService.OnChange -= OnToastChanged;
+
+        eventTimer?.Dispose();
+        cts.Cancel();
+        cts.Dispose();
     }
 }

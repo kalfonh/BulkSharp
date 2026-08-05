@@ -54,6 +54,11 @@ public static class ServiceCollectionExtensions
                 client.BaseAddress = new Uri($"{request.Scheme}://{request.Host}{request.PathBase}/");
         });
 
+        // Toasts are a rendering of operation events, read over HTTP. Implementing an
+        // event handler and injecting ToastService into it only works when the UI and the
+        // worker share a process, which is untrue behind a gateway.
+        services.AddScoped<OperationEventToastPoller>();
+
         return services;
     }
 }

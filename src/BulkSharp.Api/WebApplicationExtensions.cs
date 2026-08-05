@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Text.Json;
+using BulkSharp.Core.Abstractions.Events;
 using BulkSharp.Core.Attributes;
 using BulkSharp.Core.Abstractions.Storage;
 using BulkSharp.Core.Configuration;
@@ -679,6 +680,39 @@ public static class WebApplicationExtensions
             .WithName("getRetryHistory")
             .WithSummary("Returns the retry attempts recorded for an operation, paged.")
             .Produces<PagedResult<BulkRowRetryHistory>>();
+
+        // ---- Event feed ----------------------------------------------
+        //
+        // Operation events are dispatched inside the processing pipeline. A UI in another
+        // process never observes them, so it reads them back here instead. Clients poll
+        // with the highest sequence they have seen.
+
+        readGroup.MapGet(BulkSharpRoutes.BulkEvents, async (
+            Guid id,
+            [FromServices] IBulkOperationEventStore store,
+            [FromQuery] long? since,
+            [FromQuery] int limit = 100,
+            CancellationToken cancellationToken = default) =>
+        {
+            var events = await store.GetForOperationAsync(id, since, Math.Clamp(limit, 1, 500), cancellationToken);
+            return Results.Ok(events);
+        })
+            .WithName("getBulkEvents")
+            .WithSummary("Returns lifecycle events for one operation, newest last.")
+            .Produces<IReadOnlyList<OperationEventDto>>();
+
+        readGroup.MapGet(BulkSharpRoutes.Events, async (
+            [FromServices] IBulkOperationEventStore store,
+            [FromQuery] long? since,
+            [FromQuery] int limit = 100,
+            CancellationToken cancellationToken = default) =>
+        {
+            var events = await store.GetAsync(since, Math.Clamp(limit, 1, 500), cancellationToken);
+            return Results.Ok(events);
+        })
+            .WithName("getEvents")
+            .WithSummary("Returns lifecycle events across all operations, for a notification feed.")
+            .Produces<IReadOnlyList<OperationEventDto>>();
 
         // ---- Export endpoint ----------------------------------------
 

@@ -66,6 +66,12 @@ public static class BulkSharpRoutes
     /// <summary>Retry attempts recorded for an operation, paged.</summary>
     public const string BulkRetryHistory = "/api/bulks/{id:guid}/retry/history";
 
+    /// <summary>Lifecycle events across all operations, for driving a UI notification feed.</summary>
+    public const string Events = "/api/events";
+
+    /// <summary>Lifecycle events for a single operation.</summary>
+    public const string BulkEvents = "/api/bulks/{id:guid}/events";
+
     /// <summary>Every route in the contract. Used by conformance tests.</summary>
     public static IReadOnlyList<string> All { get; } =
     [
@@ -85,6 +91,8 @@ public static class BulkSharpRoutes
         BulkRetry,
         BulkRetryRows,
         BulkRetryEligibility,
-        BulkRetryHistory
+        BulkRetryHistory,
+        Events,
+        BulkEvents
     ];
 }

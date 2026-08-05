@@ -67,4 +67,10 @@ internal sealed class BackendClient(HttpClient http, string serviceName) : IBack
 
     public Task<HttpResponseMessage> GetExportAsync(Guid id, string queryString, CancellationToken ct = default)
         => http.GetAsync($"api/bulks/{id}/export{queryString}", HttpCompletionOption.ResponseHeadersRead, ct);
+
+    public Task<HttpResponseMessage> GetBulkEventsAsync(Guid id, string queryString, CancellationToken ct = default)
+        => http.GetAsync($"api/bulks/{id}/events{queryString}", ct);
+
+    public Task<HttpResponseMessage> GetEventsAsync(string queryString, CancellationToken ct = default)
+        => http.GetAsync($"api/events{queryString}", ct);
 }
