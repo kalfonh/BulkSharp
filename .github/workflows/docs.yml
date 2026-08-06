@@ -3,7 +3,11 @@ name: Docs
 on:
   push:
     branches: [main]
-    paths: ['docs/**', 'src/**/*.cs']
+    # Deliberately unfiltered. A path filter is evaluated against the push diff, which is
+    # unreliable for force-pushes and rewritten history — a skipped run leaves the site
+    # showing whatever was published last. Rebuilding on every push to main is cheap and
+    # removes that failure mode.
+  workflow_dispatch:
 
 permissions:
   contents: read
