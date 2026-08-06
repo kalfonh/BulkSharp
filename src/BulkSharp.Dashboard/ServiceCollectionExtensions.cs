@@ -42,7 +42,11 @@ public static class ServiceCollectionExtensions
 
         services.AddServerSideBlazor();
         services.AddHttpClient();
-        services.AddSingleton<ToastService>();
+        // Scoped, not singleton: in Blazor Server a scope is a circuit, so toasts belong to
+        // one browser session. As a singleton every connected user shares one toast list —
+        // they see each other's notifications, and each circuit's event poller adds another
+        // copy of every event to the same list.
+        services.AddScoped<ToastService>();
 
         // Blazor Server has no ambient base address, so resolve it from the current
         // request. The dashboard then talks to the API exactly as an external client does.

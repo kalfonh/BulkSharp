@@ -57,6 +57,29 @@ public class DashboardDogfoodingTests
     }
 
     /// <summary>
+    /// In Blazor Server a scope is a circuit, so per-user UI state must be scoped. As a
+    /// singleton, every connected user shares one toast list — they see each other's
+    /// notifications, and every circuit's event poller adds another copy of each event.
+    /// </summary>
+    [Theory]
+    [InlineData(typeof(ToastService))]
+    [InlineData(typeof(OperationEventToastPoller))]
+    public void PerUserUiState_IsScopedNotSingleton(Type serviceType)
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddBulkSharp(b => b
+            .UseFileStorage(fs => fs.UseInMemory())
+            .UseMetadataStorage(ms => ms.UseInMemory())
+            .UseScheduler(s => s.UseImmediate()));
+        services.AddBulkSharpDashboard();
+
+        var descriptor = services.Last(d => d.ServiceType == serviceType);
+
+        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
+    }
+
+    /// <summary>
     /// Guards against the theory silently covering nothing if component discovery breaks.
     /// </summary>
     [Fact]
